@@ -1,7 +1,6 @@
 // js/api/geminiClient.js
 import { fetchWithRetry } from './geminiRetry.js';
 import { GeminiStreamer } from './geminiStream.js';
-import { CONFIG } from '../core/config.js';
 
 export class GeminiClient {
     constructor(apiKey) {
@@ -11,7 +10,6 @@ export class GeminiClient {
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
         const url = `${this.baseUrl}:generateContent?key=${this.apiKey}`;
-        
         const payload = this._buildPayload(promptText, systemInstruction, expectJson);
 
         const response = await fetchWithRetry(url, {
@@ -30,7 +28,6 @@ export class GeminiClient {
 
     async streamContent(promptText, systemInstruction = "") {
         const url = `${this.baseUrl}:streamGenerateContent?key=${this.apiKey}`;
-        
         const payload = this._buildPayload(promptText, systemInstruction, false);
 
         const response = await fetchWithRetry(url, {
@@ -41,32 +38,28 @@ export class GeminiClient {
 
         if (!response.ok) throw new Error(`Stream API Error: ${response.status}`);
         
-        await GeminiStreamer.processStream(response);
+        // FIX: Return the awaited text so state isn't lost
+        return await GeminiStreamer.processStream(response); 
     }
 
     _buildPayload(promptText, systemInstruction, expectJson) {
         const payload = {
             contents: [{ parts: [{ text: promptText }] }]
         };
-
         if (systemInstruction) {
             payload.systemInstruction = { parts: [{ text: systemInstruction }] };
         }
-
         if (expectJson) {
             payload.generationConfig = { responseMimeType: "application/json" };
         }
-
         return payload;
     }
 
     _parseStrictJson(rawText) {
         try {
-            // Strip markdown code fences if the LLM leaked them
             const cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
             return JSON.parse(cleanText);
         } catch (error) {
-            console.error("[GeminiClient] Fatal JSON Schema Violation:", rawText);
             throw new Error("Failed to parse deterministic JSON from LLM.");
         }
     }
