@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexisAI | Deep Research Engine</title>
+    <link rel="stylesheet" href="css/cinematic.css">
+    <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+    <main id="app-root" class="scroll-container">
+        <section class="landing-container animate-reveal" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <h1 class="typography-h1" style="margin-bottom: 2rem;">LexisAI</h1>
+            <p style="color: var(--text-secondary); margin-bottom: 3rem; max-width: 600px; text-align: center;">
+                Enter your research objective. The system will synthesize a deeply verified, oracle-level report.
+            </p>
+            
+            <form id="query-form" style="width: 100%; max-width: 700px; position: relative;">
+                <input type="text" id="main-search-input" class="cinematic-input frosted-glass" placeholder="Initiate multi-stage deep research..." required autocomplete="off">
+            </form>
+
+            <nav style="margin-top: 3rem; display: flex; gap: 2rem;">
+                <a href="#/history" class="nav-link" style="color: var(--text-secondary); text-decoration: none;">View History</a>
+                <a href="#/settings" class="nav-link" style="color: var(--text-secondary); text-decoration: none;">Parameters</a>
+            </nav>
+        </section>
+    </main>
+
+    <script type="module" src="js/core/app.js"></script>
+</body>
+</html>
