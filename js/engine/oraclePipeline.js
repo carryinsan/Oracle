@@ -5,106 +5,103 @@ import { queryGenerator } from './queryGenerator.js';
 import { analysisCoordinator } from './analysisCoordinator.js';
 import { researchPlanner } from './researchPlanner.js';
 import { reportAssembler } from './reportAssembler.js';
+import { TavilySearchOrchestrator } from '../api/tavilySearch.js';
+import { sourceManager } from './sourceManager.js';
 
 export class OraclePipeline {
     constructor() {
         this.isRunning = false;
+        
+        // Subscribing to UI triggers to commence the DAG
+        eventBus.subscribe('RESEARCH_INITIATED', () => {
+            // Retrieve API keys from browser storage
+            const geminiKey = localStorage.getItem('GEMINI_API_KEY') || 'YOUR_GEMINI_KEY';
+            const tavilyKey = localStorage.getItem('TAVILY_API_KEY') || 'YOUR_TAVILY_KEY';
+            this.executeDeepResearch(geminiKey, tavilyKey);
+        });
     }
 
-    async executeDeepResearch(apiKey) {
+    async executeDeepResearch(geminiKey, tavilyKey) {
         if (this.isRunning) return;
         this.isRunning = true;
         researchState.update('status', 'RESEARCHING');
+
+        const searchOrchestrator = new TavilySearchOrchestrator(tavilyKey);
 
         try {
             console.log("[OraclePipeline] Initiating 25-Pass Orchestration DAG...");
 
             // ==========================================
-            // PHASE 1: PARALLEL DISCOVERY & EXTRACTION
+            // PHASE 1: DISCOVERY & EXTRACTION
             // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: DISCOVERY', pass: '01-03' });
+            await queryGenerator.generatePrimaryBranches(geminiKey);
             
-            // Passes 01, 02, 03: Parallel Query Generation
-            await queryGenerator.generatePrimaryBranches(apiKey);
-            
-            // Execute Web Search (Tavily Integration from Part 4)
             eventBus.publish('PIPELINE_ACTION', { action: 'Executing Multi-Branch Web Retrieval' });
-            // await tavilySearchOrchestrator.executeInitialPhase(); -> assumed executed here
+            // FIX: Execute Tavily Search & Ingest
+            const initialResults = await searchOrchestrator.executeInitialPhase();
+            sourceManager.ingestSources(initialResults);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: EXTRACTION', pass: '04' });
-            // Pass 04: Global Extraction & ID Anchoring
-            await analysisCoordinator.executeGlobalExtraction(apiKey);
+            await analysisCoordinator.executeGlobalExtraction(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: REFLECTION', pass: '05' });
-            // Pass 05: Immutable Contradiction Mapping
-            await analysisCoordinator.mapContradictions(apiKey);
+            await analysisCoordinator.mapContradictions(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: INDEXING', pass: '06' });
-            // Pass 06: Memory Indexing & Thematic Clustering
-            await analysisCoordinator.indexMemory(apiKey);
+            await analysisCoordinator.indexMemory(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: GAP-FILL', pass: '07-08' });
-            // Passes 07, 08: Gap-Fill Search Generation
-            await queryGenerator.generateSecondaryBranches(apiKey);
-            // await tavilySearchOrchestrator.executeSecondaryPhase(); -> assumed executed
+            await queryGenerator.generateSecondaryBranches(geminiKey);
+            
+            eventBus.publish('PIPELINE_ACTION', { action: 'Executing Secondary Gap-Fill Web Retrieval' });
+            // FIX: Execute Gap-Fill Tavily Search & Ingest
+            const branchDResults = await searchOrchestrator.executeBranch('branch_D');
+            const branchEResults = await searchOrchestrator.executeBranch('branch_E');
+            sourceManager.ingestSources([...branchDResults, ...branchEResults]);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: EXTRACTION', pass: '09' });
-            // Pass 09: Secondary Extraction
-            await analysisCoordinator.executeSecondaryExtraction(apiKey);
+            await analysisCoordinator.executeSecondaryExtraction(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: COMPRESSION', pass: '10' });
-            // Pass 10: Token Control & Triage
-            await analysisCoordinator.compressCorpus(apiKey);
+            await analysisCoordinator.compressCorpus(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: VERIFICATION', pass: '11' });
-            // Pass 11: Fact Consistency & Snapshot
-            await analysisCoordinator.verifyCorpus(apiKey);
-
+            await analysisCoordinator.verifyCorpus(geminiKey);
 
             // ==========================================
             // PHASE 2: THE COGNITIVE CORE
             // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 2: GLOBAL SYNTHESIS', pass: '12' });
-            // Pass 12: Global Synthesis (The Merge)
-            await analysisCoordinator.mergeKnowledgeBase(apiKey);
+            await analysisCoordinator.mergeKnowledgeBase(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 2: OUTLINING', pass: '13' });
-            // Pass 13: Master Outlining & Style Generation
-            await researchPlanner.generateMasterOutline(apiKey);
+            await researchPlanner.generateMasterOutline(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 2: RED-TEAM CRITIQUE', pass: '14' });
-            // Pass 14: Red-Team Critique
-            await researchPlanner.executeRedTeamCritique(apiKey);
-
+            await researchPlanner.executeRedTeamCritique(geminiKey);
 
             // ==========================================
-            // PHASE 3: PARALLEL GENERATION & ANCHORING
+            // PHASE 3: GENERATION & ANCHORING
             // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 3: GENERATION', pass: '15-21' });
             researchState.update('status', 'SYNTHESIZING');
-            
-            // Passes 15-21: Parallel Block Generation
-            await reportAssembler.generateDraftSections(apiKey);
+            await reportAssembler.generateDraftSections(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 3: CITATION RESOLUTION', pass: '22' });
-            // Pass 22: Citation Reconstruction
-            await reportAssembler.reconstructCitations(apiKey);
-
+            await reportAssembler.reconstructCitations(geminiKey);
 
             // ==========================================
-            // PHASE 4: POST-PROCESSING & ALIGNMENT
+            // PHASE 4: POST-PROCESSING
             // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 4: SMOOTHING', pass: '23' });
-            // Pass 23: Transitional Smoothing
-            await reportAssembler.smoothTransitions(apiKey);
+            await reportAssembler.smoothTransitions(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 4: INTEGRITY AUDIT', pass: '24' });
-            // Pass 24: Cognitive Integrity Audit
-            await reportAssembler.executeIntegrityAudit(apiKey);
+            await reportAssembler.executeIntegrityAudit(geminiKey);
 
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 4: FINAL AUDIT', pass: '25' });
-            // Pass 25: Final Core Audit & Humanize
-            await reportAssembler.finalizeReport(apiKey);
+            await reportAssembler.finalizeReport(geminiKey);
 
             // ==========================================
             // PIPELINE COMPLETE
