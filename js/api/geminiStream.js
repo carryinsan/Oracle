@@ -8,6 +8,7 @@ export class GeminiStreamer {
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
+        let fullText = ""; // FIX: Accumulate the final text
 
         try {
             while (true) {
@@ -19,9 +20,8 @@ export class GeminiStreamer {
 
                 buffer += decoder.decode(value, { stream: true });
                 
-                // Gemini API SSE chunks usually start with "data: "
                 const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep the last incomplete line in the buffer
+                buffer = lines.pop(); // Keep incomplete line
 
                 for (const line of lines) {
                     if (line.trim().startsWith('data: ')) {
@@ -32,14 +32,16 @@ export class GeminiStreamer {
                             const parsed = JSON.parse(jsonStr);
                             const textChunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || "";
                             if (textChunk) {
+                                fullText += textChunk; // Accumulate here
                                 eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk });
                             }
                         } catch (e) {
-                            // Ignore partial JSON parses in the middle of a stream chunk
+                            // Ignore partial JSON parses
                         }
                     }
                 }
             }
+            return fullText; // FIX: Return accumulated string to the assembler
         } catch (error) {
             console.error("[GeminiStream] Error reading stream:", error);
             eventBus.publish('LLM_STREAM_ERROR', { error: error.message });
