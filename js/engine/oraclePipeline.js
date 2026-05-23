@@ -13,7 +13,6 @@ export class OraclePipeline {
         this.isRunning = false;
         
         eventBus.subscribe('RESEARCH_INITIATED', () => {
-            // Null parameters; keys are now handled by the backend
             this.executeDeepResearch(null, null);
         });
     }
@@ -28,9 +27,6 @@ export class OraclePipeline {
         try {
             console.log("[OraclePipeline] Initiating 25-Pass Orchestration DAG...");
 
-            // ==========================================
-            // PHASE 1: DISCOVERY & EXTRACTION
-            // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: DISCOVERY', pass: '01-03' });
             await queryGenerator.generatePrimaryBranches(dummyGemini);
             
@@ -64,9 +60,6 @@ export class OraclePipeline {
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 1: VERIFICATION', pass: '11' });
             await analysisCoordinator.verifyCorpus(dummyGemini);
 
-            // ==========================================
-            // PHASE 2: THE COGNITIVE CORE
-            // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 2: GLOBAL SYNTHESIS', pass: '12' });
             await analysisCoordinator.mergeKnowledgeBase(dummyGemini);
 
@@ -76,9 +69,6 @@ export class OraclePipeline {
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 2: RED-TEAM CRITIQUE', pass: '14' });
             await researchPlanner.executeRedTeamCritique(dummyGemini);
 
-            // ==========================================
-            // PHASE 3: GENERATION & ANCHORING
-            // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 3: GENERATION', pass: '15-21' });
             researchState.update('status', 'SYNTHESIZING');
             await reportAssembler.generateDraftSections(dummyGemini);
@@ -86,9 +76,6 @@ export class OraclePipeline {
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 3: CITATION RESOLUTION', pass: '22' });
             await reportAssembler.reconstructCitations(dummyGemini);
 
-            // ==========================================
-            // PHASE 4: POST-PROCESSING
-            // ==========================================
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 4: SMOOTHING', pass: '23' });
             await reportAssembler.smoothTransitions(dummyGemini);
 
@@ -98,12 +85,13 @@ export class OraclePipeline {
             eventBus.publish('STAGE_CHANGED', { stage: 'PHASE 4: FINAL AUDIT', pass: '25' });
             await reportAssembler.finalizeReport(dummyGemini);
 
-            // ==========================================
-            // PIPELINE COMPLETE
-            // ==========================================
+            // SUCCESS TRANSITION: Buffer for 2 seconds so memory settles, then route to the PDF screen
             researchState.update('status', 'COMPLETED');
-            eventBus.publish('PIPELINE_COMPLETE', { success: true });
             console.log("[OraclePipeline] 25-Pass Orchestration Successfully Concluded.");
+            
+            setTimeout(() => {
+                eventBus.publish('PIPELINE_COMPLETE', { success: true });
+            }, 2000);
 
         } catch (error) {
             console.error("[OraclePipeline] Fatal DAG Interruption:", error);
