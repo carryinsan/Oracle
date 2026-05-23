@@ -2,6 +2,10 @@
 import { TavilyClient } from './tavilyClient.js';
 import { TavilyCompressor } from './tavilyCompressor.js';
 import { researchState } from '../engine/researchState.js';
+import { eventBus } from '../core/eventBus.js';
+
+// The unbreakable 3-second breather function
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export class TavilySearchOrchestrator {
     constructor(apiKey) {
@@ -12,28 +16,38 @@ export class TavilySearchOrchestrator {
         const queries = researchState.get(`queries.${branchName}`) || [];
         if (queries.length === 0) return [];
 
-        console.log(`[TavilySearch] Executing parallel batch for branch: ${branchName}`);
-
-        // Execute all queries in the branch concurrently
-        const searchPromises = queries.map(query => this.client.executeSearch(query, true));
-        const responses = await Promise.all(searchPromises);
-
         let aggregatedResults = [];
-        responses.forEach(response => {
-            const compressed = TavilyCompressor.processSearchResults(response);
-            aggregatedResults = aggregatedResults.concat(compressed);
-        });
+
+        // STRICT SEQUENTIAL LOOP: No more Promise.all bursting
+        for (const query of queries) {
+            // ENFORCE 3-SECOND BREAK BEFORE EVERY SEARCH
+            await sleep(3000); 
+            
+            eventBus.publish('PIPELINE_ACTION', { action: `Executing Search: "${query}"` });
+            
+            try {
+                const response = await this.client.executeSearch(query, true);
+                const compressed = TavilyCompressor.processSearchResults(response);
+                aggregatedResults = aggregatedResults.concat(compressed);
+            } catch (error) {
+                console.error(`[TavilySearch] Skipped query due to error: ${query}`);
+                // Allow the engine to continue even if one search fails
+            }
+        }
 
         return aggregatedResults;
     }
 
     async executeInitialPhase() {
-        // Run Ontology (A), Contrarian (B), and Temporal (C) branches simultaneously
-        const [resultsA, resultsB, resultsC] = await Promise.all([
-            this.executeBranch('branch_A'),
-            this.executeBranch('branch_B'),
-            this.executeBranch('branch_C')
-        ]);
+        // STRICT SEQUENTIAL EXECUTION: Wait for A to finish before starting B
+        eventBus.publish('PIPELINE_ACTION', { action: 'Initiating Branch A (Ontology) Searches...' });
+        const resultsA = await this.executeBranch('branch_A');
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Initiating Branch B (Contrarian) Searches...' });
+        const resultsB = await this.executeBranch('branch_B');
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Initiating Branch C (Temporal) Searches...' });
+        const resultsC = await this.executeBranch('branch_C');
 
         return [...resultsA, ...resultsB, ...resultsC];
     }
