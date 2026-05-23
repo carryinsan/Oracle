@@ -4,15 +4,14 @@ import { GeminiStreamer } from './geminiStream.js';
 
 export class GeminiClient {
     constructor(apiKey) {
-        this.apiKey = apiKey;
-        this.baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash";
+        // apiKey is ignored. Pointing strictly to local Vercel backend.
+        this.baseUrl = "/api/gemini";
     }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
-        const url = `${this.baseUrl}:generateContent?key=${this.apiKey}`;
-        const payload = this._buildPayload(promptText, systemInstruction, expectJson);
+        const payload = { promptText, systemInstruction, expectJson, stream: false };
 
-        const response = await fetchWithRetry(url, {
+        const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -27,10 +26,9 @@ export class GeminiClient {
     }
 
     async streamContent(promptText, systemInstruction = "") {
-        const url = `${this.baseUrl}:streamGenerateContent?key=${this.apiKey}`;
-        const payload = this._buildPayload(promptText, systemInstruction, false);
+        const payload = { promptText, systemInstruction, expectJson: false, stream: true };
 
-        const response = await fetchWithRetry(url, {
+        const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -38,21 +36,7 @@ export class GeminiClient {
 
         if (!response.ok) throw new Error(`Stream API Error: ${response.status}`);
         
-        // FIX: Return the awaited text so state isn't lost
         return await GeminiStreamer.processStream(response); 
-    }
-
-    _buildPayload(promptText, systemInstruction, expectJson) {
-        const payload = {
-            contents: [{ parts: [{ text: promptText }] }]
-        };
-        if (systemInstruction) {
-            payload.systemInstruction = { parts: [{ text: systemInstruction }] };
-        }
-        if (expectJson) {
-            payload.generationConfig = { responseMimeType: "application/json" };
-        }
-        return payload;
     }
 
     _parseStrictJson(rawText) {
