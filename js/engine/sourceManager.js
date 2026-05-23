@@ -6,20 +6,25 @@ class SourceManager {
     ingestSources(newSources) {
         if (!newSources || !Array.isArray(newSources)) return;
 
+        // Flatten in case Tavily returned nested arrays
+        const flatSources = newSources.flat();
+
         const currentSources = researchState.get('raw_sources') || [];
         
-        // Deduplicate sources based on URL to prevent bloating RAM
+        // Deduplicate
         const existingUrls = new Set(currentSources.map(s => s.url));
-        const uniqueNewSources = newSources.filter(s => !existingUrls.has(s.url));
+        const uniqueNewSources = flatSources.filter(s => s && s.url && !existingUrls.has(s.url));
 
         const combinedSources = [...currentSources, ...uniqueNewSources];
         researchState.update('raw_sources', combinedSources);
 
-        // Broadcast the live count and exact data to the UI
-        eventBus.publish('SOURCES_UPDATED', { 
-            count: combinedSources.length,
-            sources: combinedSources
-        });
+        // Force a 500ms delay to ensure the UI DOM is fully painted before broadcasting
+        setTimeout(() => {
+            eventBus.publish('SOURCES_UPDATED', { 
+                count: combinedSources.length,
+                sources: combinedSources
+            });
+        }, 500);
     }
 
     getAllSources() {
