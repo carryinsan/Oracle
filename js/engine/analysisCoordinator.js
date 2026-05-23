@@ -1,105 +1,55 @@
 // js/engine/analysisCoordinator.js
 import { GeminiClient } from '../api/geminiClient.js';
+import { OpenRouterClient } from '../api/openrouterClient.js';
 import { researchState } from './researchState.js';
 import * as Prompts from '../prompts/analysisPrompts.js';
 import { eventBus } from '../core/eventBus.js';
 
 class AnalysisCoordinator {
-    
-    // UTILITY: Mathematically chunks massive arrays into safe TPM payloads
-    _chunkArray(array, size) {
-        const chunks = [];
-        for (let i = 0; i < array.length; i += size) {
-            chunks.push(array.slice(i, i + size));
-        }
-        return chunks;
+    async executeGlobalExtraction() {
+        const client = new GeminiClient();
+        eventBus.publish('PIPELINE_ACTION', { action: 'Extracting Claims from Branches A, B, C (via Gemini)...' });
+        const extracted = await client.generateContent(Prompts.PASS_04_RANK, `SOURCES: ${JSON.stringify(researchState.get('raw_sources'))}`, false);
+        researchState.update('anchored_claims', extracted);
     }
-
-    async executeGlobalExtraction(apiKey) {
-        const client = new GeminiClient(apiKey);
-        const sources = researchState.get('raw_sources') || [];
-        eventBus.publish('PIPELINE_ACTION', { action: 'Executing Global Extraction...' });
-        
-        const payload = `Raw Data: ${JSON.stringify(sources.slice(0, 50))}`; 
-        const extraction = await client.generateContent(Prompts.PASS_04_RANK, payload, false);
-        researchState.update('anchored_claims', [{ id: 'batch_1', content: extraction }]);
-    }
-
-    async mapContradictions(apiKey) {
-        const client = new GeminiClient(apiKey);
-        eventBus.publish('PIPELINE_ACTION', { action: 'Mapping Contradictions...' });
-        
-        const payload = `Anchored Claims: ${JSON.stringify(researchState.get('anchored_claims'))}`;
-        const contradictions = await client.generateContent(Prompts.PASS_05_REFLECT, payload, false);
+    async mapContradictions() {
+        const client = new GeminiClient();
+        eventBus.publish('PIPELINE_ACTION', { action: 'Mapping Epistemological Contradictions (via Gemini)...' });
+        const contradictions = await client.generateContent(Prompts.PASS_05_REFLECT, `CLAIMS: ${researchState.get('anchored_claims')}`, false);
         researchState.update('contradictions', contradictions);
     }
-
-    async indexMemory(apiKey) {
-        const client = new GeminiClient(apiKey);
-        eventBus.publish('PIPELINE_ACTION', { action: 'Indexing Semantic Memory...' });
-        
-        const payload = `Anchored Claims: ${JSON.stringify(researchState.get('anchored_claims'))}`;
-        const memory = await client.generateContent(Prompts.PASS_06_THINK, payload, true);
-        researchState.update('memory_index', memory);
+    async indexMemory() {
+        const client = new GeminiClient();
+        eventBus.publish('PIPELINE_ACTION', { action: 'Indexing Semantic Memory (via Gemini)...' });
+        const index = await client.generateContent(Prompts.PASS_06_THINK, `CLAIMS: ${researchState.get('anchored_claims')}`, true);
+        researchState.update('memory_index', index);
     }
-
-    async executeSecondaryExtraction(apiKey) {
-        const client = new GeminiClient(apiKey);
-        eventBus.publish('PIPELINE_ACTION', { action: 'Executing Secondary Extraction...' });
-        
-        const sources = researchState.get('raw_sources') || [];
-        const payload = `Raw Data: ${JSON.stringify(sources.slice(50, 100))}`;
-        const extraction = await client.generateContent(Prompts.PASS_09_RANK_SECONDARY, payload, false);
-        
-        const existing = researchState.get('anchored_claims') || [];
-        researchState.update('anchored_claims', [...existing, { id: 'batch_2', content: extraction }]);
+    async executeSecondaryExtraction() {
+        const client = new GeminiClient();
+        eventBus.publish('PIPELINE_ACTION', { action: 'Extracting Secondary Gap-Fill Sources (via Gemini)...' });
+        const extracted = await client.generateContent(Prompts.PASS_09_RANK_SECONDARY, `SOURCES: ${JSON.stringify(researchState.get('raw_sources'))}`, false);
+        researchState.update('anchored_claims', researchState.get('anchored_claims') + '\n' + extracted);
     }
-
-    async compressCorpus(apiKey) {
-        const client = new GeminiClient(apiKey);
-        eventBus.publish('PIPELINE_ACTION', { action: 'Compressing Corpus...' });
-        
-        const payload = `Claims: ${JSON.stringify(researchState.get('anchored_claims'))}`;
-        const compressed = await client.generateContent(Prompts.PASS_10_COMPRESS, payload, false);
+    async compressCorpus() {
+        const client = new GeminiClient();
+        eventBus.publish('PIPELINE_ACTION', { action: 'Compressing Corpus to maximize Token Density (via Gemini)...' });
+        const compressed = await client.generateContent(Prompts.PASS_10_COMPRESS, `CLAIMS: ${researchState.get('anchored_claims')}`, false);
         researchState.update('compressed_corpus', compressed);
     }
-
-    async verifyCorpus(apiKey) {
-        const client = new GeminiClient(apiKey);
-        eventBus.publish('PIPELINE_ACTION', { action: 'Verifying Corpus...' });
-        
-        const payload = `Compressed Corpus: ${researchState.get('compressed_corpus')}`;
-        const verified = await client.generateContent(Prompts.PASS_11_VERIFY, payload, false);
+    async verifyCorpus() {
+        const client = new GeminiClient();
+        eventBus.publish('PIPELINE_ACTION', { action: 'Verifying Knowledge Base Integrity (via Gemini)...' });
+        const verified = await client.generateContent(Prompts.PASS_11_VERIFY, `CORPUS: ${researchState.get('compressed_corpus')}`, false);
         researchState.update('verified_corpus', verified);
     }
 
-    // THE ULTIMATE 429 TPM FIX: INCREMENTAL SYNTHESIS
-    async mergeKnowledgeBase(apiKey) {
-        const client = new GeminiClient(apiKey);
-        const allSources = researchState.get('raw_sources') || [];
-        
-        eventBus.publish('PIPELINE_ACTION', { action: `Initializing Incremental Synthesis for ${allSources.length} sources...` });
-        
-        // Chunk sources into safe batches of 30 to stay strictly below TPM Limits
-        const sourceChunks = this._chunkArray(allSources, 30);
-        let synthesizedChunks = [];
-
-        for (let i = 0; i < sourceChunks.length; i++) {
-            eventBus.publish('PIPELINE_ACTION', { action: `Synthesizing Source Chunk ${i + 1} of ${sourceChunks.length}...` });
-            
-            const chunkPayload = `Verified Corpus Context: ${researchState.get('verified_corpus')}\nSource Batch: ${JSON.stringify(sourceChunks[i])}\nContradictions: ${researchState.get('contradictions')}`;
-            const chunkSynthesis = await client.generateContent(Prompts.PASS_12_THINK, chunkPayload, false);
-            
-            synthesizedChunks.push(chunkSynthesis);
-        }
-
-        eventBus.publish('PIPELINE_ACTION', { action: 'Merging Chunked Knowledge Base...' });
-        
-        const finalMergePayload = `Synthesized Chunks: ${JSON.stringify(synthesizedChunks)}`;
-        const finalKnowledgeBase = await client.generateContent(Prompts.PASS_12_THINK, finalMergePayload, false);
-
-        researchState.update('Compiled_Knowledge_Base', finalKnowledgeBase);
+    async mergeKnowledgeBase() {
+        // MEGA PASS: DeepSeek V4 Pro swallows the entire 1 Million token context seamlessly!
+        const client = new OpenRouterClient();
+        const payload = `VERIFIED CORPUS: ${researchState.get('verified_corpus')}\nCONTRADICTIONS: ${JSON.stringify(researchState.get('contradictions'))}`;
+        eventBus.publish('PIPELINE_ACTION', { action: 'Executing Massive Global Synthesis (via DeepSeek V4 Pro)...' });
+        const compiled = await client.generateContent(Prompts.PASS_12_THINK, payload, false);
+        researchState.update('Compiled_Knowledge_Base', compiled);
     }
 }
-
 export const analysisCoordinator = new AnalysisCoordinator();
