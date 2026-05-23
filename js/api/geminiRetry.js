@@ -13,30 +13,38 @@ export async function fetchWithRetry(url, options, maxRetries = 10, baseDelay = 
             const response = await fetch(url, options);
             clearTimeout(timeoutId);
 
-            if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
+            // ONLY return if strictly successful
+            if (response.ok) {
                 return response;
             }
 
-            throw new Error(`HTTP Error: ${response.status}`);
+            // Extract the diagnostic error from the backend
+            let errorMsg = `HTTP Error: ${response.status}`;
+            try {
+                const errData = await response.json();
+                errorMsg = errData.error ? errData.error : errorMsg;
+            } catch(e) {}
+
+            throw new Error(errorMsg);
 
         } catch (error) {
             clearTimeout(timeoutId);
-            const isRateLimit = error.message.includes('429');
             attempt++;
 
             if (attempt >= maxRetries || error.name === 'AbortError') {
-                console.error(`[GeminiRetry] System exhausted all ${maxRetries} recovery attempts.`);
                 throw error;
             }
 
+            const isRateLimit = error.message.includes('429');
             let delayTime;
+
             if (isRateLimit) {
-                // Exponential 429 scaling: 15s -> 30s -> 60s
                 delayTime = 15000 * Math.pow(2, attempt - 1);
-                eventBus.publish('PIPELINE_ACTION', { action: `API Rate Limit (429). Forcing cooldown... waiting ${delayTime / 1000}s.` });
+                // PRINT EXACT ERROR TO UI
+                eventBus.publish('PIPELINE_ACTION', { action: `API 429 Cooldown (${delayTime / 1000}s). Reason: ${error.message}` });
             } else {
                 delayTime = (baseDelay * Math.pow(2, attempt - 1)) + (Math.random() * 2000);
-                eventBus.publish('PIPELINE_ACTION', { action: `Network anomaly detected. Auto-recovering (Attempt ${attempt})...` });
+                eventBus.publish('PIPELINE_ACTION', { action: `Network anomaly (${error.message}). Retrying...` });
             }
 
             await new Promise(resolve => setTimeout(resolve, delayTime));
