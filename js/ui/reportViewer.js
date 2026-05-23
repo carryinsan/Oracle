@@ -4,95 +4,51 @@ import { researchState } from '../engine/researchState.js';
 
 class ReportViewer {
     constructor() {
-        this.container = null;
-        this.tooltip = null;
         this.init();
     }
 
     init() {
-        eventBus.subscribe('ROUTE_CHANGED', (data) => {
-            if (data.path === '/report') {
-                this.container = document.getElementById('report-content-container');
-                this.tooltip = document.getElementById('citation-tooltip');
-                this.renderFinalReport();
-            }
-        });
-
-        // Auto-route to report when DAG completes
-        eventBus.subscribe('PIPELINE_COMPLETE', () => {
-            setTimeout(() => {
-                window.location.hash = '#/report';
-            }, 1500); // Brief pause to let user see 100%
-        });
+        eventBus.subscribe('PIPELINE_COMPLETE', () => this.renderReport());
     }
 
-    renderFinalReport() {
-        if (!this.container) return;
-
-        const finalMarkdown = researchState.get('sections.final_assembly');
+    renderReport() {
+        const report = researchState.get('sections.final_assembly');
+        const sources = [...new Set(researchState.get('anchored_claims').map(c => c.url))];
+        const container = document.getElementById('report-content-container');
         
-        if (!finalMarkdown) {
-            this.container.innerHTML = `<p style="color: var(--error-color);">No report generated. Please initiate a research sequence.</p>`;
-            return;
-        }
+        container.innerHTML = `
+            <div id="report-body" style="padding: 20px;">${report}</div>
+            
+            <div id="premium-source-bar" class="frosted-glass" style="margin-top: 40px; padding: 20px;">
+                <h3 style="color: var(--glow-accent);">RESEARCHING ${sources.length} SOURCES</h3>
+                <div id="source-list" style="margin-top: 15px; max-height: 300px; overflow-y: auto;">
+                    ${sources.map((url, i) => `
+                        <div class="frosted-glass" style="padding: 10px; margin-bottom: 8px; border-radius: 8px; font-size: 0.85rem;">
+                            <span style="color: var(--text-secondary);">[${i + 1}]</span> 
+                            <a href="${url}" target="_blank" style="color: var(--text-primary); text-decoration: none;">${url}</a>
+                        </div>
+                    `).join('')}
+                </div>
+                <button id="pdf-export-btn" style="width: 100%; margin-top: 20px; padding: 15px; background: var(--glow-accent); border: none; border-radius: 8px; color: white; cursor: pointer;">
+                    Download Full Report (PDF)
+                </button>
+            </div>
+        `;
 
-        // Basic Markdown to HTML parsing for the UI representation
-        let htmlContent = this.parseMarkdown(finalMarkdown);
-        
-        // Transform citation markers e.g., ^[1](url="X" weight="Y")^ into interactive DOM nodes
-        htmlContent = htmlContent.replace(/\^\[(\d+)\]\(url="(.*?)" weight="(.*?)"\)\^/g, 
-            (match, id, url, weight) => {
-                return `<sup class="interactive-citation" data-url="${url}" data-weight="${weight}" style="color: var(--glow-accent); cursor: pointer; padding: 0 2px;">[${id}]</sup>`;
-            }
-        );
-
-        this.container.innerHTML = htmlContent;
-        this.bindCitationTooltips();
-        this.updateMetaHeaders();
+        document.getElementById('pdf-export-btn').addEventListener('click', () => this.exportPDF());
     }
 
-    parseMarkdown(md) {
-        // Very basic markdown parsing for bold, italics, headers, and line breaks
-        let html = md.replace(/^### (.*$)/gim, '<h3 style="margin-top: 2rem;">$1</h3>');
-        html = html.replace(/^## (.*$)/gim, '<h2 style="margin-top: 2.5rem; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">$1</h2>');
-        html = html.replace(/^\> (.*$)/gim, '<blockquote style="border-left: 3px solid var(--glow-accent); padding-left: 1rem; color: var(--text-secondary); margin: 1.5rem 0;">$1</blockquote>');
-        html = html.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>');
-        html = html.replace(/\*(.*)\*/gim, '<i>$1</i>');
-        return html.replace(/\n\n/g, '<p style="margin-bottom: 1.5rem;"></p>');
-    }
-
-    bindCitationTooltips() {
-        if (!this.container || !this.tooltip) return;
-
-        const citations = this.container.querySelectorAll('.interactive-citation');
-        
-        citations.forEach(citation => {
-            citation.addEventListener('mouseenter', (e) => {
-                const url = e.target.dataset.url;
-                const weight = e.target.dataset.weight;
-                
-                this.tooltip.innerHTML = `
-                    <div style="margin-bottom: 8px; font-weight: bold; color: var(--text-primary);">Source Confidence: ${parseFloat(weight) * 100}%</div>
-                    <div style="word-break: break-all; color: var(--glow-accent);"><a href="${url}" target="_blank" style="color: inherit; text-decoration: none;">${url}</a></div>
-                `;
-                
-                this.tooltip.style.display = 'block';
-                this.tooltip.style.left = `${e.pageX + 15}px`;
-                this.tooltip.style.top = `${e.pageY + 15}px`;
-            });
-
-            citation.addEventListener('mouseleave', () => {
-                this.tooltip.style.display = 'none';
-            });
-        });
-    }
-
-    updateMetaHeaders() {
-        const sourcesCount = researchState.get('anchored_claims')?.length || 0;
-        const metaSources = document.getElementById('meta-sources');
-        if (metaSources) {
-            metaSources.textContent = `Sources Verified: ${sourcesCount}`;
-        }
+    exportPDF() {
+        const element = document.getElementById('report-body');
+        const opt = {
+            margin: 1,
+            filename: 'LexisAI_Research_Report.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        // Ensure html2pdf is loaded via CDN in index.html
+        html2pdf().set(opt).from(element).save();
     }
 }
 
