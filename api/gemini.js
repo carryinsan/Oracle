@@ -8,11 +8,21 @@ export default async function handler(req) {
     
     try {
         const { promptText, systemInstruction, expectJson, stream } = await req.json();
-        const apiKey = process.env.GEMINI_API_KEY; 
+        
+        // 1. THE LOAD BALANCER: Pool your 3 specific keys from Vercel
+        const keys = [
+            process.env.GEMINI_API_KEY,
+            process.env.GEMINI_API_KEY_1,
+            process.env.GEMINI_API_KEY_2
+        ].filter(Boolean); // This strictly removes any undefined keys to prevent crashes
 
-        if (!apiKey) {
-            return new Response(JSON.stringify({ error: "CRITICAL: Vercel Environment Variable GEMINI_API_KEY is missing." }), { status: 500 });
+        if (keys.length === 0) {
+            return new Response(JSON.stringify({ error: "CRITICAL: No GEMINI API keys found in Vercel." }), { status: 500 });
         }
+
+        // 2. THE ROTATION: Randomly pick one of the 3 keys for this specific request
+        // This splits your 20-request Free Tier limit across all 3 keys (giving you 60 requests instantly)
+        const apiKey = keys[Math.floor(Math.random() * keys.length)];
 
         const baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash";
         const endpoint = stream ? "streamGenerateContent" : "generateContent";
@@ -32,7 +42,6 @@ export default async function handler(req) {
         });
 
         if (!response.ok) {
-            // DIAGNOSTIC EXTRACTION: Pull the exact string from Google
             const errorText = await response.text();
             return new Response(JSON.stringify({ error: `Google Edge Ban/Error: ${errorText}` }), { 
                 status: response.status,
