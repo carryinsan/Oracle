@@ -2,6 +2,7 @@
 import { eventBus } from '../core/eventBus.js';
 import { researchState } from '../engine/researchState.js';
 import { router } from '../core/router.js';
+import { sourceManager } from '../engine/sourceManager.js';
 
 class ReportViewer {
     constructor() {
@@ -9,7 +10,6 @@ class ReportViewer {
     }
 
     init() {
-        // Listen for live source updates during research
         eventBus.subscribe('SOURCES_UPDATED', (data) => {
             const btn = document.getElementById('toggle-live-sources-btn');
             const list = document.getElementById('live-sources-list');
@@ -19,15 +19,27 @@ class ReportViewer {
             }
         });
 
-        // Setup routing for the final report
         eventBus.subscribe('ROUTE_CHANGED', (data) => {
-            if (data.path === '/research') this.bindLiveSourcesToggle();
+            if (data.path === '/research') {
+                this.bindLiveSourcesToggle();
+                this.forceSourceUIRefresh(); // Catch up on missed counts
+            }
             if (data.path === '/report') this.renderFinalReport();
         });
 
         eventBus.subscribe('PIPELINE_COMPLETE', () => {
             router.navigateTo('/report');
         });
+    }
+
+    forceSourceUIRefresh() {
+        const sources = sourceManager.getAllSources();
+        const btn = document.getElementById('toggle-live-sources-btn');
+        const list = document.getElementById('live-sources-list');
+        if (btn && list && sources.length > 0) {
+            btn.textContent = `Researching ${sources.length} Sources ▼`;
+            list.innerHTML = sources.map(s => this.createSourceBar(s)).join('');
+        }
     }
 
     bindLiveSourcesToggle() {
@@ -43,13 +55,11 @@ class ReportViewer {
     renderFinalReport() {
         const container = document.getElementById('report-content-container');
         const finalDraft = researchState.get('sections.final_assembly');
-        const allSources = researchState.get('raw_sources') || [];
+        const allSources = sourceManager.getAllSources();
         
         if (!container || !finalDraft) return;
 
-        // Render Markdown to HTML safely
         container.innerHTML = this.simpleMarkdownParse(finalDraft);
-        
         document.getElementById('meta-sources-final').textContent = `Sources Verified: ${allSources.length}`;
 
         this.generateTableOfContents(container);
@@ -61,10 +71,8 @@ class ReportViewer {
         if (!tocNav) return;
         tocNav.innerHTML = '';
 
-        // Find all generated Headers
         const headers = container.querySelectorAll('h2, h3');
         headers.forEach((header, index) => {
-            // Assign unique ID so TOC can scroll to it
             const id = `section-${index}`;
             header.id = id;
 
@@ -73,7 +81,6 @@ class ReportViewer {
             link.className = `toc-item ${header.tagName.toLowerCase()}`;
             link.textContent = header.textContent.replace(/[*#]/g, '').trim();
             
-            // Smooth scroll override
             link.onclick = (e) => {
                 e.preventDefault();
                 header.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -84,13 +91,11 @@ class ReportViewer {
     }
 
     bindFinalButtons(sources) {
-        // 1. Back to Home
         document.getElementById('btn-back-home').onclick = () => {
             window.location.hash = '/';
             window.location.reload();
         };
 
-        // 2. Download Mobile/PC PDF utilizing html2pdf.js
         document.getElementById('btn-download-pdf').onclick = () => {
             const element = document.getElementById('pdf-export-area');
             const opt = {
@@ -100,11 +105,9 @@ class ReportViewer {
                 html2canvas:  { scale: 2, useCORS: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
-            // The library is injected via index.html
             window.html2pdf().set(opt).from(element).save();
         };
 
-        // 3. Final Sources Modal
         const modal = document.getElementById('final-sources-modal');
         const list = document.getElementById('final-sources-list');
         
@@ -119,7 +122,6 @@ class ReportViewer {
     }
 
     createSourceBar(source) {
-        // Creates the sleek, premium glass bar for each individual website/source
         return `
             <div class="source-bar">
                 <span class="source-title">${(source.title || "Extracted Document").substring(0, 80)}...</span>
