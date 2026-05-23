@@ -2,22 +2,21 @@
 
 export class TavilyClient {
     constructor(apiKey) {
-        // apiKey is ignored. Pointing strictly to local Vercel backend.
         this.baseUrl = "/api/tavily";
     }
 
     async executeSearch(query, advanced = true) {
         const payload = {
             query: query,
-            search_depth: advanced ? "advanced" : "basic",
+            search_depth: "advanced", // FORCED ADVANCED DEPTH
             include_raw_content: true,
             include_domains: [],
             exclude_domains: [],
-            max_results: 5
+            max_results: 18 // FORCED 18 RESULTS PER QUERY
         };
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); 
+        const timeoutId = setTimeout(() => controller.abort(), 30000); 
 
         try {
             const response = await fetch(this.baseUrl, {
