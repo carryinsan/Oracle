@@ -4,7 +4,6 @@ import { router } from './router.js';
 import { eventBus } from './eventBus.js';
 import { researchState } from '../engine/researchState.js';
 
-// WAKE UP COMMANDS: These imports force the controllers to turn on and listen
 import '../engine/oraclePipeline.js';
 import '../ui/researchFeed.js';
 import '../ui/researchTimeline.js';
@@ -37,7 +36,6 @@ class LexisApp {
         const input = document.getElementById('main-search-input');
         
         if (form && input) {
-            // Clone to prevent duplicate event listeners on re-routing
             const newForm = form.cloneNode(true);
             form.parentNode.replaceChild(newForm, form);
             const newInput = document.getElementById('main-search-input');
@@ -49,9 +47,13 @@ class LexisApp {
                     researchState.update('user_prompt', query);
                     router.navigateTo('/research');
                     
-                    setTimeout(() => {
-                        eventBus.publish('RESEARCH_INITIATED', { query });
-                    }, 500);
+                    // STRICT DOM SYNC: Wait for the log container to physically exist before starting
+                    const domCheck = setInterval(() => {
+                        if (document.getElementById('live-log-container')) {
+                            clearInterval(domCheck);
+                            eventBus.publish('RESEARCH_INITIATED', { query });
+                        }
+                    }, 100);
                 }
             });
         }
@@ -59,12 +61,10 @@ class LexisApp {
 
     handleGlobalError(event) {
         console.error(`[${CONFIG.APP_NAME} Critical]`, event.error);
-        researchState.failures.push(`Syntax/DOM Error: ${event.message}`);
     }
 
     handleGlobalPromiseRejection(event) {
         console.error(`[${CONFIG.APP_NAME} Async Critical]`, event.reason);
-        researchState.failures.push(`Async Engine Error: ${event.reason}`);
     }
 }
 
