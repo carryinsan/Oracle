@@ -1,39 +1,49 @@
 // js/api/geminiRetry.js
+import { eventBus } from '../core/eventBus.js';
 
-export async function fetchWithRetry(url, options, maxRetries = 3, baseDelay = 1000) {
+export async function fetchWithRetry(url, options, maxRetries = 10, baseDelay = 2000) {
     let attempt = 0;
 
     while (attempt < maxRetries) {
         const controller = new AbortController();
-        // FIX: Increased from 30000ms to 120000ms (2 minutes) for heavy deep research passes
-        const timeoutId = setTimeout(() => controller.abort(), 120000); 
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
         options.signal = controller.signal;
 
         try {
             const response = await fetch(url, options);
             clearTimeout(timeoutId);
 
+            // If successful or a non-429 client error (like a bad prompt), return it
             if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
                 return response;
             }
 
+            // Throw 429 (Too Many Requests) or 5xx to the catch block for recovery
             throw new Error(`HTTP Error: ${response.status}`);
 
         } catch (error) {
             clearTimeout(timeoutId);
+            const isRateLimit = error.message.includes('429');
+            
             attempt++;
 
             if (attempt >= maxRetries || error.name === 'AbortError') {
-                console.error(`[GeminiRetry] Request failed after ${attempt} attempts:`, error);
+                console.error(`[GeminiRetry] System exhausted all ${maxRetries} recovery attempts.`);
                 throw error;
             }
 
-            const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
-            const jitter = Math.random() * exponentialDelay;
-            const finalWaitTime = exponentialDelay + jitter;
+            // If 429, force a massive 15-second cooldown. Otherwise, standard exponential backoff.
+            let delayTime = isRateLimit ? 15000 : (baseDelay * Math.pow(2, attempt - 1)) + (Math.random() * 2000);
 
-            console.warn(`[GeminiRetry] Network fault. Retrying in ${Math.round(finalWaitTime)}ms...`);
-            await new Promise(resolve => setTimeout(resolve, finalWaitTime));
+            // Visibly tell the UI we are auto-recovering so it doesn't look frozen
+            if (isRateLimit) {
+                eventBus.publish('PIPELINE_ACTION', { action: 'API Rate Limit (429) Protected. Auto-recovering in 15s...' });
+            } else {
+                eventBus.publish('PIPELINE_ACTION', { action: `Network anomaly detected. Auto-recovering (Attempt ${attempt})...` });
+            }
+
+            // Sleep and wait for API to cool down
+            await new Promise(resolve => setTimeout(resolve, delayTime));
         }
     }
 }
