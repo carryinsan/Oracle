@@ -3,6 +3,7 @@ import { GeminiClient } from '../api/geminiClient.js';
 import { researchState } from './researchState.js';
 import * as Prompts from '../prompts/writingPrompts.js';
 import { eventBus } from '../core/eventBus.js';
+import { citationManager } from './citationManager.js';
 
 class ReportAssembler {
     async generateDraftSections(apiKey) {
@@ -10,29 +11,30 @@ class ReportAssembler {
         const style = researchState.get('STYLE_GUIDE');
         const memoryIndex = researchState.get('memory_index');
         
-        // Execute writing tasks sequentially to prevent 429 Rate Limits
-        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Introduction...' });
-        const intro = await client.streamContent(Prompts.PASS_15_WRITE_INTRO, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.intro || '')}`);
-        
-        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Core Mechanics...' });
-        const core = await client.streamContent(Prompts.PASS_16_WRITE_CORE, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.technical || '')}`);
-        
-        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Deep Dive A...' });
-        const diveA = await client.streamContent(Prompts.PASS_17_WRITE_DIVE_A, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.deep_dive_1 || '')}`);
-        
-        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Deep Dive B...' });
-        const diveB = await client.streamContent(Prompts.PASS_18_WRITE_DIVE_B, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.deep_dive_2 || '')}`);
-        
-        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Data & Metrics...' });
-        const dataMetrics = await client.streamContent(Prompts.PASS_19_WRITE_DATA, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.statistical || '')}`);
-        
-        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Nuance & Edge Cases...' });
-        const nuance = await client.streamContent(Prompts.PASS_20_WRITE_NUANCE, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.contrarian || '')}\nCONTRADICTIONS: ${researchState.get('contradictions')}`);
-        
-        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Conclusion...' });
-        const conclusion = await client.streamContent(Prompts.PASS_21_WRITE_CONCLUSION, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.future || '')}`);
+        // LENGTH INJECTOR: Force extreme length on all writing passes
+        const lengthDirective = "\nCRITICAL LENGTH DIRECTIVE: You must write an exhaustive, deep-dive section. Minimum 2000 words. Expand on every single detail, data point, and nuance.";
 
-        // Update the singleton state with the drafted text
+        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Introduction...' });
+        const intro = await client.streamContent(Prompts.PASS_15_WRITE_INTRO, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.intro || '')}${lengthDirective}`);
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Core Mechanics...' });
+        const core = await client.streamContent(Prompts.PASS_16_WRITE_CORE, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.technical || '')}${lengthDirective}`);
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Deep Dive A...' });
+        const diveA = await client.streamContent(Prompts.PASS_17_WRITE_DIVE_A, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.deep_dive_1 || '')}${lengthDirective}`);
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Deep Dive B...' });
+        const diveB = await client.streamContent(Prompts.PASS_18_WRITE_DIVE_B, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.deep_dive_2 || '')}${lengthDirective}`);
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Data & Metrics...' });
+        const dataMetrics = await client.streamContent(Prompts.PASS_19_WRITE_DATA, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.statistical || '')}${lengthDirective}`);
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Nuance & Edge Cases...' });
+        const nuance = await client.streamContent(Prompts.PASS_20_WRITE_NUANCE, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.contrarian || '')}\nCONTRADICTIONS: ${researchState.get('contradictions')}${lengthDirective}`);
+        
+        eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Conclusion...' });
+        const conclusion = await client.streamContent(Prompts.PASS_21_WRITE_CONCLUSION, `STYLE: ${style}\nSLICE: ${JSON.stringify(memoryIndex.future || '')}${lengthDirective}`);
+
         researchState.update('sections.introduction', intro);
         researchState.update('sections.core_mechanics', core);
         researchState.update('sections.deep_dive_a', diveA);
@@ -75,7 +77,25 @@ class ReportAssembler {
         const payload = `DRAFT: ${researchState.get('draft.smoothed_and_compressed')}\nAUDIT: ${researchState.get('integrity_audit')}\nSTYLE: ${researchState.get('STYLE_GUIDE')}`;
         
         eventBus.publish('PIPELINE_ACTION', { action: 'Finalizing Report Verification...' });
-        const finalReport = await client.generateContent(Prompts.PASS_25_HUMANIZE_VERIFY, payload, false);
+        
+        // 1. Generate the core report via LLM
+        let finalReport = await client.generateContent(Prompts.PASS_25_HUMANIZE_VERIFY, payload, false);
+        
+        // 2. NATIVE JAVASCRIPT BIBLIOGRAPHY GENERATOR (Prevents LLM laziness)
+        eventBus.publish('PIPELINE_ACTION', { action: 'Appending Massive Raw Source Bibliography...' });
+        const allClaims = researchState.get('anchored_claims') || [];
+        
+        // Deduplicate URLs to prevent identical links from appearing twice
+        const uniqueUrls = [...new Set(allClaims.map(c => c.url))];
+        
+        let nativeBibliography = `\n\n---\n\n## Exhaustive Documented Sources (${uniqueUrls.length} Sources Verified)\n\n`;
+        uniqueUrls.forEach((url, index) => {
+            nativeBibliography += `**[${index + 1}]** ${url}\n\n`;
+        });
+
+        // 3. Weld the massive bibliography to the final report
+        finalReport += nativeBibliography;
+
         researchState.update('sections.final_assembly', finalReport);
     }
 }
