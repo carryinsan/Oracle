@@ -14,9 +14,24 @@ export class TavilySearchOrchestrator {
     async executeBranch(branchName) {
         let queries = researchState.get(`queries.${branchName}`);
 
-        // GROQ JSON CRACKER: If Groq wrapped the array in a master object, extract it safely
+        // THE ULTIMATE GROQ JSON CRACKER: The Array Hunter
         if (queries && !Array.isArray(queries) && typeof queries === 'object') {
-            queries = queries.queries || queries.search_queries || queries.branch || Object.values(queries)[0];
+            if (Array.isArray(queries.queries)) {
+                queries = queries.queries;
+            } else if (Array.isArray(queries.search_queries)) {
+                queries = queries.search_queries;
+            } else if (Array.isArray(queries.branch)) {
+                queries = queries.branch;
+            } else {
+                // Deep scan: Hunt through every value inside the object to find the array
+                const foundArray = Object.values(queries).find(val => Array.isArray(val));
+                if (foundArray) {
+                    queries = foundArray;
+                } else {
+                    // Absolute fallback
+                    queries = Object.values(queries)[0]; 
+                }
+            }
         }
 
         // If it still isn't a valid array after cracking, skip gracefully
