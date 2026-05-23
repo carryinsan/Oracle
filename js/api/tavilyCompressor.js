@@ -10,7 +10,8 @@ export class TavilyCompressor {
 
             const selectorsToRemove = [
                 'script', 'style', 'nav', 'footer', 'header', 
-                'aside', 'noscript', 'iframe', 'svg', 'form', 'button'
+                'aside', 'noscript', 'iframe', 'svg', 'form', 'button',
+                '.ad', '.advertisement', '.menu', '#comments'
             ];
 
             selectorsToRemove.forEach(selector => {
@@ -21,18 +22,19 @@ export class TavilyCompressor {
             const textContent = doc.body ? doc.body.textContent : rawContent;
             let cleanText = textContent.replace(/\s+/g, ' ').trim();
             
-            // CRITICAL RAM FIX: Cap each source to 8,000 characters to prevent 
-            // Vercel 413 Payload Too Large errors when sending 270 sources to Gemini.
-            cleanText = cleanText.substring(0, 8000);
+            // TPM WALL FIX: Truncate to 1,200 characters (approx. 3 paragraphs).
+            // This captures the Abstract/Core Facts while dropping the fluff.
+            // 270 sources * 1200 chars = 324,000 chars (Safe for Gemini TPM limits).
+            cleanText = cleanText.substring(0, 1200);
 
-            // AGGRESSIVE GARBAGE COLLECTION: Free up RAM instantly
+            // Instant Garbage Collection
             parser = null;
             doc = null;
 
             return cleanText;
 
         } catch (error) {
-            return rawContent.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim().substring(0, 8000);
+            return rawContent.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim().substring(0, 1200);
         }
     }
 
