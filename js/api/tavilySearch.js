@@ -13,12 +13,17 @@ export class TavilySearchOrchestrator {
 
     async executeBranch(branchName) {
         const queries = researchState.get(`queries.${branchName}`) || [];
-        if (queries.length === 0) return [];
+        if (!Array.isArray(queries) || queries.length === 0) return [];
 
         let aggregatedResults = [];
 
-        for (const query of queries) {
-            // STRICT 5s DELAY for search
+        for (let query of queries) {
+            // FIX: Destroy the [object Object] bug by explicitly extracting strings from bad JSON
+            if (typeof query === 'object' && query !== null) {
+                query = query.query || query.q || query.search_term || Object.values(query)[0];
+            }
+            if (typeof query !== 'string' || !query.trim()) continue;
+
             await sleep(5000); 
             
             eventBus.publish('PIPELINE_ACTION', { action: `Executing Search: "${query}"` });
