@@ -19,6 +19,8 @@ class ResearchFeed {
         eventBus.subscribe('STAGE_CHANGED', (data) => {
             if (this.taskDisplay) {
                 this.taskDisplay.textContent = `Executing ${data.stage} (Pass ${data.pass})`;
+                // UI FIX: Reset the color back to normal just in case a previous error turned it red
+                this.taskDisplay.style.color = "var(--text-primary)";
             }
             this.appendLog(`[SYSTEM] Initializing ${data.stage}...`, 'system');
         });
@@ -31,7 +33,6 @@ class ResearchFeed {
             this.appendStreamChunk(data.text);
         });
 
-        // FIX: Visibly catch and render fatal errors so the UI doesn't look "frozen"
         eventBus.subscribe('PIPELINE_ERROR', (data) => {
             this.appendLog(`[FATAL ERROR] ${data.error}`, 'error');
             if (this.taskDisplay) {
@@ -51,7 +52,6 @@ class ResearchFeed {
         logEntry.style.fontSize = '0.9rem';
         logEntry.textContent = message;
 
-        // Apply specific coloring
         if (type === 'system') {
             logEntry.style.color = 'var(--glow-accent)';
         } else if (type === 'error') {
