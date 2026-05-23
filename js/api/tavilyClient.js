@@ -2,13 +2,12 @@
 
 export class TavilyClient {
     constructor(apiKey) {
-        this.apiKey = apiKey;
-        this.baseUrl = "https://api.tavily.com/search";
+        // apiKey is ignored. Pointing strictly to local Vercel backend.
+        this.baseUrl = "/api/tavily";
     }
 
     async executeSearch(query, advanced = true) {
         const payload = {
-            api_key: this.apiKey,
             query: query,
             search_depth: advanced ? "advanced" : "basic",
             include_raw_content: true,
@@ -18,7 +17,7 @@ export class TavilyClient {
         };
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 20000); 
 
         try {
             const response = await fetch(this.baseUrl, {
@@ -30,15 +29,12 @@ export class TavilyClient {
 
             clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                throw new Error(`Tavily API Error: ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`Tavily API Error: ${response.status}`);
             return await response.json();
         } catch (error) {
             clearTimeout(timeoutId);
             console.error(`[TavilyClient] Query failed: "${query}"`, error);
-            return { results: [] }; // Return empty array on failure to prevent pipeline crash
+            return { results: [] }; 
         }
     }
 }
