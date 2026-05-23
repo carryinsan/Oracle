@@ -20,12 +20,13 @@ Action: update(researchState.contradictions), update(researchState.trajectory).
 Constraints: Output strict markdown list of contradictions referencing conflicting claim_id's. If none, output "NO CONTRADICTIONS DETECTED".
 `);
 
+// FIX: Updated constraints to strictly demand valid JSON instead of Markdown H3 headers
 export const PASS_06_THINK = basePrompt(`
 System: You are a multidimensional indexing engine.
 Context: Anchored Claims & Contradictions.
 Task: Group claims into semantic clusters. Assign conceptual tags so downstream passes can retrieve specific memory slices via the [SEMANTIC MEMORY INDEX]. Identify visualization_candidates.
 Action: update(researchState.memory_index), update(researchState.visualization_candidates).
-Constraints: Output H3 (###) semantic cluster names followed by their associated claim_id's. NO MARKDOWN TABLES.
+Constraints: Output ONLY valid JSON. The JSON should be an object where keys are semantic cluster names and values are arrays of claim_id's.
 `);
 
 export const PASS_09_RANK_SECONDARY = basePrompt(`
