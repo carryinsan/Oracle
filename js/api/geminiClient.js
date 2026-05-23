@@ -4,7 +4,6 @@ import { GeminiStreamer } from './geminiStream.js';
 
 export class GeminiClient {
     constructor(apiKey) {
-        // apiKey is ignored. Pointing strictly to local Vercel backend.
         this.baseUrl = "/api/gemini";
     }
 
@@ -41,10 +40,25 @@ export class GeminiClient {
 
     _parseStrictJson(rawText) {
         try {
-            const cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            let cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            
+            // FIX: Hunt down actual JSON boundaries to ignore conversational garbage
+            const firstBrace = cleanText.indexOf('{');
+            const lastBrace = cleanText.lastIndexOf('}');
+            const firstBracket = cleanText.indexOf('[');
+            const lastBracket = cleanText.lastIndexOf(']');
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+                cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+            } else if (firstBracket !== -1 && lastBracket !== -1) {
+                cleanText = cleanText.substring(firstBracket, lastBracket + 1);
+            }
+
             return JSON.parse(cleanText);
         } catch (error) {
-            throw new Error("Failed to parse deterministic JSON from LLM.");
+            console.error("[GeminiClient] JSON Parse Fallback Triggered. Raw Text:", rawText);
+            // FIX: Return an empty object/array instead of throwing a fatal error to prevent freezing
+            return rawText.includes('[') ? [] : {}; 
         }
     }
 }
