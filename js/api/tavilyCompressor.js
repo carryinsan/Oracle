@@ -5,14 +5,12 @@ export class TavilyCompressor {
         if (!rawContent) return "";
 
         try {
-            // Utilize native browser DOMParser for rapid HTML stripping
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(rawContent, 'text/html');
+            let parser = new DOMParser();
+            let doc = parser.parseFromString(rawContent, 'text/html');
 
-            // Strip heavy non-semantic nodes
             const selectorsToRemove = [
                 'script', 'style', 'nav', 'footer', 'header', 
-                'aside', 'noscript', 'iframe', 'svg', 'form'
+                'aside', 'noscript', 'iframe', 'svg', 'form', 'button'
             ];
 
             selectorsToRemove.forEach(selector => {
@@ -20,14 +18,21 @@ export class TavilyCompressor {
                 elements.forEach(el => el.remove());
             });
 
-            // Extract pure text content and collapse whitespace
             const textContent = doc.body ? doc.body.textContent : rawContent;
-            return textContent.replace(/\s+/g, ' ').trim();
+            let cleanText = textContent.replace(/\s+/g, ' ').trim();
+            
+            // CRITICAL RAM FIX: Cap each source to 8,000 characters to prevent 
+            // Vercel 413 Payload Too Large errors when sending 270 sources to Gemini.
+            cleanText = cleanText.substring(0, 8000);
+
+            // AGGRESSIVE GARBAGE COLLECTION: Free up RAM instantly
+            parser = null;
+            doc = null;
+
+            return cleanText;
 
         } catch (error) {
-            console.warn("[TavilyCompressor] HTML parse failed, falling back to regex.", error);
-            // Fallback: Aggressive regex stripping
-            return rawContent.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+            return rawContent.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim().substring(0, 8000);
         }
     }
 
