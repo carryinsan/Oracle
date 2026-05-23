@@ -10,8 +10,8 @@ export class GeminiClient {
     }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
-        // STRICT 5.5s DELAY: Mathematically prevents exceeding 15 Requests Per Minute
-        await sleep(5500); 
+        // TPM RECOVERY BREATHER: 8.5 seconds allows the token bucket to drain safely
+        await sleep(8500); 
 
         const payload = { promptText, systemInstruction, expectJson, stream: false };
 
@@ -30,8 +30,8 @@ export class GeminiClient {
     }
 
     async streamContent(promptText, systemInstruction = "") {
-        // STRICT 5.5s DELAY
-        await sleep(5500);
+        // TPM RECOVERY BREATHER: 8.5 seconds
+        await sleep(8500);
 
         const payload = { promptText, systemInstruction, expectJson: false, stream: true };
 
