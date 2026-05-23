@@ -4,7 +4,6 @@ import { TavilyCompressor } from './tavilyCompressor.js';
 import { researchState } from '../engine/researchState.js';
 import { eventBus } from '../core/eventBus.js';
 
-// The unbreakable 3-second breather function
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export class TavilySearchOrchestrator {
@@ -18,10 +17,9 @@ export class TavilySearchOrchestrator {
 
         let aggregatedResults = [];
 
-        // STRICT SEQUENTIAL LOOP: No more Promise.all bursting
         for (const query of queries) {
-            // ENFORCE 3-SECOND BREAK BEFORE EVERY SEARCH
-            await sleep(3000); 
+            // STRICT 5s DELAY for search
+            await sleep(5000); 
             
             eventBus.publish('PIPELINE_ACTION', { action: `Executing Search: "${query}"` });
             
@@ -31,7 +29,6 @@ export class TavilySearchOrchestrator {
                 aggregatedResults = aggregatedResults.concat(compressed);
             } catch (error) {
                 console.error(`[TavilySearch] Skipped query due to error: ${query}`);
-                // Allow the engine to continue even if one search fails
             }
         }
 
@@ -39,7 +36,6 @@ export class TavilySearchOrchestrator {
     }
 
     async executeInitialPhase() {
-        // STRICT SEQUENTIAL EXECUTION: Wait for A to finish before starting B
         eventBus.publish('PIPELINE_ACTION', { action: 'Initiating Branch A (Ontology) Searches...' });
         const resultsA = await this.executeBranch('branch_A');
         
