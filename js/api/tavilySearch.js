@@ -11,30 +11,51 @@ export class TavilySearchOrchestrator {
         this.client = new TavilyClient(apiKey);
     }
 
-    async executeBranch(branchName) {
-        let queries = researchState.get(`queries.${branchName}`);
+    // THE OMNI-EXTRACTOR: Cracks Arrays, Objects, and Bulleted Text Strings
+    _extractQueries(data) {
+        if (!data) return [];
+        if (Array.isArray(data)) return data;
 
-        // THE ULTIMATE GROQ JSON CRACKER: The Array Hunter
-        if (queries && !Array.isArray(queries) && typeof queries === 'object') {
-            if (Array.isArray(queries.queries)) {
-                queries = queries.queries;
-            } else if (Array.isArray(queries.search_queries)) {
-                queries = queries.search_queries;
-            } else if (Array.isArray(queries.branch)) {
-                queries = queries.branch;
-            } else {
-                // Deep scan: Hunt through every value inside the object to find the array
-                const foundArray = Object.values(queries).find(val => Array.isArray(val));
-                if (foundArray) {
-                    queries = foundArray;
-                } else {
-                    // Absolute fallback
-                    queries = Object.values(queries)[0]; 
-                }
-            }
+        if (typeof data === 'string') {
+            try {
+                let parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) return parsed;
+            } catch (e) {}
+
+            // If Groq returned a bulleted string list instead of an array, parse it manually
+            return data.split('\n')
+                       .map(line => line.replace(/^[-*0-9.)]+\s*/, '').replace(/["']/g, '').trim())
+                       .filter(line => line.length > 5);
         }
 
-        // If it still isn't a valid array after cracking, skip gracefully
+        if (typeof data === 'object' && data !== null) {
+            // Level 1: Find any explicit array
+            for (let key of Object.keys(data)) {
+                if (Array.isArray(data[key])) return data[key];
+            }
+            // Level 2: Search deeper into nested objects
+            for (let key of Object.keys(data)) {
+                if (typeof data[key] === 'object') {
+                    let deep = this._extractQueries(data[key]);
+                    if (deep.length > 0) return deep;
+                }
+            }
+            // Level 3: If Groq just gave a giant string block, rip the text out and convert to array
+            let strings = Object.values(data).filter(v => typeof v === 'string' && v.length > 10);
+            if (strings.length > 0) {
+                return this._extractQueries(strings[0]);
+            }
+        }
+        
+        return [];
+    }
+
+    async executeBranch(branchName) {
+        let rawQueries = researchState.get(`queries.${branchName}`);
+        
+        // Pass Groq's unpredictable output into the Omni-Extractor
+        let queries = this._extractQueries(rawQueries);
+
         if (!Array.isArray(queries) || queries.length === 0) {
             eventBus.publish('PIPELINE_ACTION', { action: `Warning: No valid queries generated for ${branchName}. Skipping.` });
             return [];
@@ -43,7 +64,7 @@ export class TavilySearchOrchestrator {
         let aggregatedResults = [];
 
         for (let query of queries) {
-            // Further extraction in case of nested [object Object] artifacts
+            // Failsafe in case Groq returned an array of objects: e.g., [{"q": "search"}]
             if (typeof query === 'object' && query !== null) {
                 query = query.query || query.q || query.search_term || Object.values(query)[0];
             }
@@ -51,7 +72,7 @@ export class TavilySearchOrchestrator {
 
             await sleep(5000); // Strict Tavily Pacing
             
-            eventBus.publish('PIPELINE_ACTION', { action: `Executing Search: "${query}"` });
+            eventBus.publish('PIPELINE_ACTION', { action: `Executing Search: "${query.substring(0, 75)}..."` });
             
             try {
                 const response = await this.client.executeSearch(query, true);
