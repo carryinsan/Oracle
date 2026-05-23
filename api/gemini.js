@@ -9,27 +9,42 @@ export default async function handler(req) {
     try {
         const { promptText, systemInstruction, expectJson, stream } = await req.json();
         
-        // 1. POOL ALL 5 KEYS
-        const keys = [
-            process.env.GEMINI_API_KEY,
+        // 1. ORGANIZE KEYS INTO STRICT ACCOUNT BUCKETS
+        const account1 = [
+            process.env.GEMINI_API_KEY
+        ].filter(Boolean);
+
+        const account2 = [
             process.env.GEMINI_API_KEY_1,
             process.env.GEMINI_API_KEY_2,
             process.env.GEMINI_API_KEY_3,
             process.env.GEMINI_API_KEY_4
         ].filter(Boolean);
 
-        if (keys.length === 0) {
+        const account3 = [
+            process.env.GEMINI_API_KEY_5
+        ].filter(Boolean);
+
+        // Filter out any empty accounts to prevent crashes
+        const activeAccounts = [account1, account2, account3].filter(acc => acc.length > 0);
+
+        if (activeAccounts.length === 0) {
             return new Response(JSON.stringify({ error: "CRITICAL: No GEMINI API keys found in Vercel." }), { status: 500 });
         }
 
-        // 2. SHUFFLE KEYS TO DISTRIBUTE LOAD
-        let activeKeys = keys.sort(() => 0.5 - Math.random());
+        // 2. SHUFFLE THE ACCOUNTS SO WE DON'T HAMMER ACCOUNT 1 EVERY TIME
+        activeAccounts.sort(() => 0.5 - Math.random());
+
         let lastError = null;
         let lastStatus = 500;
 
-        // 3. THE CASCADING WATERFALL: Try keys until one succeeds
-        for (let i = 0; i < activeKeys.length; i++) {
-            const apiKey = activeKeys[i];
+        // 3. THE TRI-BUCKET WATERFALL
+        for (let i = 0; i < activeAccounts.length; i++) {
+            const currentAccountPool = activeAccounts[i];
+            
+            // Pick one random key from this specific account's pool
+            const apiKey = currentAccountPool[Math.floor(Math.random() * currentAccountPool.length)];
+
             const baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash";
             const endpoint = stream ? "streamGenerateContent" : "generateContent";
             const url = `${baseUrl}:${endpoint}?key=${apiKey}`;
@@ -47,7 +62,7 @@ export default async function handler(req) {
                 body: JSON.stringify(payload)
             });
 
-            // IF SUCCESS: Return data immediately to frontend
+            // IF SUCCESS: Return instantly to the frontend!
             if (response.ok) {
                 if (stream) {
                     return new Response(response.body, { headers: { 'Content-Type': 'text/event-stream' } });
@@ -58,19 +73,20 @@ export default async function handler(req) {
             } else {
                 lastStatus = response.status;
                 const errorText = await response.text();
-                lastError = `Google Error: ${errorText}`;
+                lastError = `Google Error (Account Bucket ${i+1}): ${errorText}`;
 
-                // IF 429 RATE LIMIT: Silently catch it and instantly loop to the NEXT key in the array!
-                if (lastStatus === 429 && i < activeKeys.length - 1) {
+                // IF 429 RATE LIMIT: This account is burned. 
+                // We SKIP the rest of the keys in this account and let the loop jump to the next Account Bucket!
+                if (lastStatus === 429) {
                     continue; 
                 }
 
-                // If it's a fatal error (like bad JSON) or we ran out of all 5 keys, break the loop.
+                // If it's a weird JSON syntax error, breaking the loop is safest
                 break;
             }
         }
 
-        // If we exhausted all 5 keys without success
+        // If ALL 3 Google Accounts are completely exhausted, bubble the error to the UI
         return new Response(JSON.stringify({ error: lastError }), { 
             status: lastStatus,
             headers: { 'Content-Type': 'application/json' }
