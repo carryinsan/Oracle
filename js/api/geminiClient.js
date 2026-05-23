@@ -2,12 +2,18 @@
 import { fetchWithRetry } from './geminiRetry.js';
 import { GeminiStreamer } from './geminiStream.js';
 
+// The unbreakable 3-second breather function
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export class GeminiClient {
     constructor(apiKey) {
         this.baseUrl = "/api/gemini";
     }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
+        // ENFORCE 3-SECOND BREAK BEFORE EVERY CALL
+        await sleep(3000); 
+
         const payload = { promptText, systemInstruction, expectJson, stream: false };
 
         const response = await fetchWithRetry(this.baseUrl, {
@@ -25,6 +31,9 @@ export class GeminiClient {
     }
 
     async streamContent(promptText, systemInstruction = "") {
+        // ENFORCE 3-SECOND BREAK BEFORE EVERY CALL
+        await sleep(3000);
+
         const payload = { promptText, systemInstruction, expectJson: false, stream: true };
 
         const response = await fetchWithRetry(this.baseUrl, {
@@ -42,7 +51,6 @@ export class GeminiClient {
         try {
             let cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
             
-            // FIX: Hunt down actual JSON boundaries to ignore conversational garbage
             const firstBrace = cleanText.indexOf('{');
             const lastBrace = cleanText.lastIndexOf('}');
             const firstBracket = cleanText.indexOf('[');
@@ -57,7 +65,6 @@ export class GeminiClient {
             return JSON.parse(cleanText);
         } catch (error) {
             console.error("[GeminiClient] JSON Parse Fallback Triggered. Raw Text:", rawText);
-            // FIX: Return an empty object/array instead of throwing a fatal error to prevent freezing
             return rawText.includes('[') ? [] : {}; 
         }
     }
