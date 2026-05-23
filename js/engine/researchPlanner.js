@@ -1,28 +1,26 @@
 // js/engine/researchPlanner.js
-import { GeminiClient } from '../api/geminiClient.js';
+import { GroqClient } from '../api/groqClient.js';
 import { researchState } from './researchState.js';
-// Prompts injected in Part 6
 import * as Prompts from '../prompts/planningPrompts.js';
+import { eventBus } from '../core/eventBus.js';
 
 class ResearchPlanner {
-    async generateMasterOutline(apiKey) {
-        const client = new GeminiClient(apiKey);
-        const knowledgeBase = researchState.get('Compiled_Knowledge_Base');
+    async generateMasterOutline() {
+        const client = new GroqClient();
+        const payload = `KNOWLEDGE BASE: ${researchState.get('Compiled_Knowledge_Base')}`;
         
-        const structure = await client.generateContent(Prompts.PASS_13_ALIGN, knowledgeBase, true);
-        
-        researchState.update('sections.outline', structure.outline || "");
-        researchState.update('STYLE_GUIDE', structure.style_guide || "");
+        eventBus.publish('PIPELINE_ACTION', { action: 'Generating Structural Outline (via Groq Llama Scout)...' });
+        const outline = await client.generateContent(Prompts.PASS_13_OUTLINE, payload, false);
+        researchState.update('master_outline', outline);
     }
 
-    async executeRedTeamCritique(apiKey) {
-        const client = new GeminiClient(apiKey);
-        const payload = `OUTLINE: ${researchState.get('sections.outline')}\nINTENT: ${researchState.get('user_prompt')}`;
+    async executeRedTeamCritique() {
+        const client = new GroqClient();
+        const payload = `OUTLINE: ${researchState.get('master_outline')}\nCONTRADICTIONS: ${JSON.stringify(researchState.get('contradictions'))}`;
         
-        const optimizedOutline = await client.generateContent(Prompts.PASS_14_REFLECT, payload, false);
-        researchState.update('sections.outline_optimized', optimizedOutline);
-        researchState.update('snapshots.pre_write', optimizedOutline); // Pre-Write Snapshot
+        eventBus.publish('PIPELINE_ACTION', { action: 'Executing Red-Team Critique (via Groq Llama Scout)...' });
+        const critique = await client.generateContent(Prompts.PASS_14_CRITIQUE, payload, false);
+        researchState.update('red_team_critique', critique);
     }
 }
-
 export const researchPlanner = new ResearchPlanner();
