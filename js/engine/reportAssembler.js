@@ -3,7 +3,6 @@ import { GeminiClient } from '../api/geminiClient.js';
 import { researchState } from './researchState.js';
 import * as Prompts from '../prompts/writingPrompts.js';
 import { eventBus } from '../core/eventBus.js';
-import { citationManager } from './citationManager.js';
 
 class ReportAssembler {
     async generateDraftSections(apiKey) {
@@ -11,7 +10,6 @@ class ReportAssembler {
         const style = researchState.get('STYLE_GUIDE');
         const memoryIndex = researchState.get('memory_index');
         
-        // LENGTH INJECTOR: Force extreme length on all writing passes
         const lengthDirective = "\nCRITICAL LENGTH DIRECTIVE: You must write an exhaustive, deep-dive section. Minimum 2000 words. Expand on every single detail, data point, and nuance.";
 
         eventBus.publish('PIPELINE_ACTION', { action: 'Synthesizing Massive Introduction...' });
@@ -50,7 +48,8 @@ class ReportAssembler {
         const payload = `DRAFT: ${rawDraft}\nANCHORS: ${JSON.stringify(researchState.get('anchored_claims'))}`;
         
         eventBus.publish('PIPELINE_ACTION', { action: 'Resolving Cryptographic Citations...' });
-        const resolved = await client.generateContent(Prompts.PASS_22_CITATION, payload, false);
+        // FIX: Stream to prevent Vercel Timeout
+        const resolved = await client.streamContent(Prompts.PASS_22_CITATION, payload);
         researchState.update('draft.resolved_citations', resolved);
     }
 
@@ -59,7 +58,8 @@ class ReportAssembler {
         const draft = researchState.get('draft.resolved_citations');
         
         eventBus.publish('PIPELINE_ACTION', { action: 'Applying Narrative Smoothing...' });
-        const smoothed = await client.generateContent(Prompts.PASS_23_ALIGN_COMPRESS, draft, false);
+        // FIX: Stream to prevent Vercel Timeout
+        const smoothed = await client.streamContent(Prompts.PASS_23_ALIGN_COMPRESS, draft);
         researchState.update('draft.smoothed_and_compressed', smoothed);
     }
 
@@ -68,7 +68,8 @@ class ReportAssembler {
         const payload = `DRAFT: ${researchState.get('draft.smoothed_and_compressed')}\nCONTRADICTIONS: ${researchState.get('contradictions')}`;
         
         eventBus.publish('PIPELINE_ACTION', { action: 'Executing Cognitive Integrity Audit...' });
-        const audit = await client.generateContent(Prompts.PASS_24_REFLECT_AUDIT, payload, false);
+        // FIX: Stream to prevent Vercel Timeout
+        const audit = await client.streamContent(Prompts.PASS_24_REFLECT_AUDIT, payload);
         researchState.update('integrity_audit', audit);
     }
 
@@ -78,24 +79,19 @@ class ReportAssembler {
         
         eventBus.publish('PIPELINE_ACTION', { action: 'Finalizing Report Verification...' });
         
-        // 1. Generate the core report via LLM
-        let finalReport = await client.generateContent(Prompts.PASS_25_HUMANIZE_VERIFY, payload, false);
+        // FIX: Stream the final mega-report to prevent the 30-second Vercel crash
+        let finalReport = await client.streamContent(Prompts.PASS_25_HUMANIZE_VERIFY, payload);
         
-        // 2. NATIVE JAVASCRIPT BIBLIOGRAPHY GENERATOR (Prevents LLM laziness)
         eventBus.publish('PIPELINE_ACTION', { action: 'Appending Massive Raw Source Bibliography...' });
         const allClaims = researchState.get('anchored_claims') || [];
-        
-        // Deduplicate URLs to prevent identical links from appearing twice
-        const uniqueUrls = [...new Set(allClaims.map(c => c.url))];
+        const uniqueUrls = [...new Set(allClaims.map(c => c.url).filter(Boolean))]; // Filter out undefined URLs safely
         
         let nativeBibliography = `\n\n---\n\n## Exhaustive Documented Sources (${uniqueUrls.length} Sources Verified)\n\n`;
         uniqueUrls.forEach((url, index) => {
             nativeBibliography += `**[${index + 1}]** ${url}\n\n`;
         });
 
-        // 3. Weld the massive bibliography to the final report
         finalReport += nativeBibliography;
-
         researchState.update('sections.final_assembly', finalReport);
     }
 }
