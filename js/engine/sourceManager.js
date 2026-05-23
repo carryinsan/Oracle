@@ -1,29 +1,29 @@
 // js/engine/sourceManager.js
 import { researchState } from './researchState.js';
+import { eventBus } from '../core/eventBus.js';
 
 class SourceManager {
     ingestSources(newSources) {
-        const currentRaw = researchState.get('raw') || [];
-        const existingUrls = new Set(currentRaw.map(src => src.url));
+        if (!newSources || !Array.isArray(newSources)) return;
 
-        const uniqueNewSources = newSources.filter(src => {
-            if (existingUrls.has(src.url)) return false;
-            if (!src.content || src.content.length < 50) return false; // Drop empty/useless payloads
-            
-            existingUrls.add(src.url);
-            return true;
-        });
-
-        const mergedSources = [...currentRaw, ...uniqueNewSources];
-        researchState.update('raw', mergedSources);
+        const currentSources = researchState.get('raw_sources') || [];
         
-        console.log(`[SourceManager] Ingested ${uniqueNewSources.length} new unique sources.`);
-        return mergedSources;
+        // Deduplicate sources based on URL to prevent bloating RAM
+        const existingUrls = new Set(currentSources.map(s => s.url));
+        const uniqueNewSources = newSources.filter(s => !existingUrls.has(s.url));
+
+        const combinedSources = [...currentSources, ...uniqueNewSources];
+        researchState.update('raw_sources', combinedSources);
+
+        // Broadcast the live count and exact data to the UI
+        eventBus.publish('SOURCES_UPDATED', { 
+            count: combinedSources.length,
+            sources: combinedSources
+        });
     }
 
-    getSourceByUrl(url) {
-        const sources = researchState.get('raw') || [];
-        return sources.find(src => src.url === url) || null;
+    getAllSources() {
+        return researchState.get('raw_sources') || [];
     }
 }
 
