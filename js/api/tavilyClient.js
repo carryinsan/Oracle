@@ -38,10 +38,10 @@ export class TavilyClient {
 
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error(`[TavilyClient] Query failed: "${query}"`, error);
+            console.error(`[TavilyClient] Query skipped: "${query}"`, error);
             
-            // Explicitly broadcast the error to the UI so the user knows exactly why it failed
-            eventBus.publish('PIPELINE_ERROR', { error: `Search Engine Fault: ${error.message}` });
+            // DOWNGRADE: Changed from PIPELINE_ERROR to PIPELINE_ACTION so it doesn't falsely halt the UI
+            eventBus.publish('PIPELINE_ACTION', { action: `Search Engine Timeout. Skipping query...` });
             
             return { results: [] }; 
         }
