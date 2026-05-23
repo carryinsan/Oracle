@@ -5,8 +5,132 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LexisAI | Deep Research Engine</title>
     
-    <link rel="stylesheet" href="./css/cinematic.css">
-    <link rel="stylesheet" href="./css/animations.css">
+    <style>
+        /* CORE CINEMATIC STYLES & ANIMATIONS */
+        :root {
+            --bg-color: #050507;
+            --color-surface: rgba(15, 15, 20, 0.6);
+            --color-surface-hover: rgba(25, 25, 35, 0.8);
+            --text-primary: #f0f0f5;
+            --text-secondary: #9aa0a6;
+            --glow-accent: #3b82f6;
+            --glow-accent-secondary: #8b5cf6;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --error-color: #ef4444;
+            --success-color: #10b981;
+            --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --radius-lg: 16px;
+            --radius-md: 8px;
+            --spacing-unit: 8px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-primary);
+            overflow: hidden; 
+            line-height: 1.6;
+        }
+
+        #app-root {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.15), transparent 60%);
+        }
+
+        .frosted-glass {
+            background: var(--color-surface);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+        }
+
+        .sidebar-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100%;
+            gap: calc(var(--spacing-unit) * 3);
+            padding: calc(var(--spacing-unit) * 3);
+        }
+
+        input.cinematic-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            padding: 16px 24px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            outline: none;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        input.cinematic-input:focus {
+            border-color: var(--glow-accent);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .typography-h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff, #9aa0a6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @keyframes fade-in-up {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(59, 130, 246, 0.6); border-color: rgba(59, 130, 246, 0.8); }
+        }
+
+        .animate-reveal {
+            animation: fade-in-up 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            will-change: transform, opacity;
+        }
+
+        .is-thinking {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        .stream-chunk {
+            opacity: 0;
+            animation: fade-in-up 0.3s ease forwards;
+        }
+
+        .scroll-container {
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-subtle) transparent;
+        }
+
+        .scroll-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scroll-container::-webkit-scrollbar-thumb {
+            background: var(--border-subtle);
+            border-radius: 10px;
+        }
+    </style>
 </head>
 <body>
     <main id="app-root" class="scroll-container">
