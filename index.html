@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LexisAI | Deep Research Engine</title>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <style>
         /* CORE CINEMATIC STYLES & ANIMATIONS */
         :root {
@@ -25,111 +27,68 @@
             --spacing-unit: 8px;
         }
 
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         html, body {
-            width: 100%;
-            height: 100%;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            font-family: var(--font-primary);
-            overflow: hidden; 
-            line-height: 1.6;
+            width: 100%; height: 100%;
+            background-color: var(--bg-color); color: var(--text-primary);
+            font-family: var(--font-primary); overflow: hidden; line-height: 1.6;
         }
 
         #app-root {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+            width: 100vw; height: 100vh; display: flex; flex-direction: column;
             position: relative;
             background: radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.15), transparent 60%);
         }
 
         .frosted-glass {
             background: var(--color-surface);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
         }
 
-        .sidebar-layout {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            height: 100%;
-            gap: calc(var(--spacing-unit) * 3);
-            padding: calc(var(--spacing-unit) * 3);
+        .sidebar-layout { display: grid; grid-template-columns: 300px 1fr; height: 100%; gap: 24px; padding: 24px; }
+        
+        /* Premium Source Bars */
+        .source-bar {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--glow-accent); border-radius: var(--radius-md);
+            padding: 12px; margin-bottom: 10px; display: flex; flex-direction: column;
+            transition: all 0.3s ease; word-break: break-all;
         }
+        .source-bar:hover { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.4); transform: translateX(5px); }
+        .source-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; color: #fff; }
+        .source-url { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); }
+        
+        /* Buttons */
+        .action-button {
+            background: rgba(59, 130, 246, 0.1); border: 1px solid var(--glow-accent);
+            color: var(--glow-accent); padding: 8px 16px; border-radius: 20px;
+            cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.2s;
+        }
+        .action-button:hover { background: var(--glow-accent); color: #fff; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+
+        /* Report & TOC Styles */
+        .report-layout { display: grid; grid-template-columns: 250px 1fr; gap: 30px; max-width: 1400px; margin: 0 auto; height: 100%; padding: 24px;}
+        .toc-container { position: sticky; top: 0; padding-right: 15px; border-right: 1px solid var(--border-subtle); max-height: 80vh; overflow-y: auto;}
+        .toc-item { display: block; color: var(--text-secondary); text-decoration: none; padding: 6px 0; font-size: 0.9rem; border-left: 2px solid transparent; padding-left: 10px; transition: all 0.2s;}
+        .toc-item:hover { color: var(--glow-accent); border-left-color: var(--glow-accent); }
+        .toc-item.h3 { padding-left: 20px; font-size: 0.85rem; }
 
         input.cinematic-input {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-primary);
-            padding: 16px 24px;
-            border-radius: 30px;
-            font-size: 1.1rem;
-            outline: none;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            width: 100%; background: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-subtle);
+            color: var(--text-primary); padding: 16px 24px; border-radius: 30px;
+            font-size: 1.1rem; outline: none; transition: all 0.3s ease; padding-right: 60px;
         }
-
-        input.cinematic-input:focus {
-            border-color: var(--glow-accent);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
-        }
-
-        .typography-h1 {
-            font-size: 2.5rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-            background: linear-gradient(135deg, #fff, #9aa0a6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        @keyframes fade-in-up {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.3); }
-            50% { box-shadow: 0 0 25px rgba(59, 130, 246, 0.6); border-color: rgba(59, 130, 246, 0.8); }
-        }
-
-        .animate-reveal {
-            animation: fade-in-up 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-            will-change: transform, opacity;
-        }
-
-        .is-thinking {
-            animation: pulse-glow 2s infinite ease-in-out;
-        }
-
-        .stream-chunk {
-            opacity: 0;
-            animation: fade-in-up 0.3s ease forwards;
-        }
-
-        .scroll-container {
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border-subtle) transparent;
-        }
-
-        .scroll-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .scroll-container::-webkit-scrollbar-thumb {
-            background: var(--border-subtle);
-            border-radius: 10px;
-        }
+        input.cinematic-input:focus { border-color: var(--glow-accent); box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+        .typography-h1 { font-size: 2.5rem; font-weight: 600; background: linear-gradient(135deg, #fff, #9aa0a6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .scroll-container { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-subtle) transparent; }
+        .scroll-container::-webkit-scrollbar { width: 6px; }
+        .scroll-container::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 10px; }
+        
+        @keyframes fade-in-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+        .animate-reveal { animation: fade-in-up 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
     </style>
 </head>
 <body>
@@ -137,26 +96,18 @@
         <section class="landing-container animate-reveal" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
             <h1 class="typography-h1" style="margin-bottom: 2rem;">LexisAI</h1>
             <p style="color: var(--text-secondary); margin-bottom: 3rem; max-width: 600px; text-align: center;">
-                Enter your research objective. The system will synthesize a deeply verified, oracle-level report.
+                Enter your research objective. The system will synthesize a deeply verified, oracle-level predictive report.
             </p>
-            
             <form id="query-form" style="width: 100%; max-width: 700px; position: relative;">
-    <input type="text" id="main-search-input" class="cinematic-input frosted-glass" placeholder="Initiate multi-stage deep research..." required autocomplete="off" style="padding-right: 60px;">
-    
-    <button type="submit" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: var(--glow-accent); display: flex; align-items: center; justify-content: center; padding: 5px;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: filter 0.3s ease; filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5));">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-        </svg>
-    </button>
-</form>
-   <nav style="margin-top: 3rem; display: flex; gap: 2rem;">
-                <a href="#/history" class="nav-link" style="color: var(--text-secondary); text-decoration: none;">View History</a>
-                <a href="#/settings" class="nav-link" style="color: var(--text-secondary); text-decoration: none;">Parameters</a>
-            </nav>
+                <input type="text" id="main-search-input" class="cinematic-input frosted-glass" placeholder="Initiate multi-stage predictive research..." required autocomplete="off">
+                <button type="submit" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: var(--glow-accent); display: flex; align-items: center; justify-content: center; padding: 5px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5));">
+                        <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </form>
         </section>
     </main>
-
     <script type="module" src="./js/core/app.js"></script>
 </body>
 </html>
