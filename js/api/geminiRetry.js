@@ -6,8 +6,8 @@ export async function fetchWithRetry(url, options, maxRetries = 10, baseDelay = 
 
     while (attempt < maxRetries) {
         const controller = new AbortController();
-        // MASSIVE TIMEOUT FIX: 300,000ms (5 Minutes) to allow 25-page long-form generation
-        const timeoutId = setTimeout(() => controller.abort(), 300000); 
+        // ULTIMATE TIMEOUT FIX: 600,000ms (10 Minutes) to allow the massive Phase 25 report to finish
+        const timeoutId = setTimeout(() => controller.abort(), 600000); 
         options.signal = controller.signal;
 
         try {
