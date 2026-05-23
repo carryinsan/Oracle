@@ -30,6 +30,15 @@ class ResearchFeed {
         eventBus.subscribe('LLM_CHUNK_RECEIVED', (data) => {
             this.appendStreamChunk(data.text);
         });
+
+        // FIX: Visibly catch and render fatal errors so the UI doesn't look "frozen"
+        eventBus.subscribe('PIPELINE_ERROR', (data) => {
+            this.appendLog(`[FATAL ERROR] ${data.error}`, 'error');
+            if (this.taskDisplay) {
+                this.taskDisplay.textContent = "Pipeline Halted Due To Error.";
+                this.taskDisplay.style.color = "var(--error-color)";
+            }
+        });
     }
 
     appendLog(message, type = 'default') {
@@ -38,10 +47,19 @@ class ResearchFeed {
         const logEntry = document.createElement('div');
         logEntry.className = `stream-chunk log-${type}`;
         logEntry.style.marginBottom = '0.5rem';
-        logEntry.style.color = type === 'system' ? 'var(--glow-accent)' : 'var(--text-secondary)';
         logEntry.style.fontFamily = 'var(--font-mono)';
         logEntry.style.fontSize = '0.9rem';
         logEntry.textContent = message;
+
+        // Apply specific coloring
+        if (type === 'system') {
+            logEntry.style.color = 'var(--glow-accent)';
+        } else if (type === 'error') {
+            logEntry.style.color = 'var(--error-color)';
+            logEntry.style.fontWeight = 'bold';
+        } else {
+            logEntry.style.color = 'var(--text-secondary)';
+        }
 
         this.container.appendChild(logEntry);
         this.scrollToBottom();
