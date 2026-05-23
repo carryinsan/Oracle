@@ -12,19 +12,29 @@ export class TavilySearchOrchestrator {
     }
 
     async executeBranch(branchName) {
-        const queries = researchState.get(`queries.${branchName}`) || [];
-        if (!Array.isArray(queries) || queries.length === 0) return [];
+        let queries = researchState.get(`queries.${branchName}`);
+
+        // GROQ JSON CRACKER: If Groq wrapped the array in a master object, extract it safely
+        if (queries && !Array.isArray(queries) && typeof queries === 'object') {
+            queries = queries.queries || queries.search_queries || queries.branch || Object.values(queries)[0];
+        }
+
+        // If it still isn't a valid array after cracking, skip gracefully
+        if (!Array.isArray(queries) || queries.length === 0) {
+            eventBus.publish('PIPELINE_ACTION', { action: `Warning: No valid queries generated for ${branchName}. Skipping.` });
+            return [];
+        }
 
         let aggregatedResults = [];
 
         for (let query of queries) {
-            // FIX: Destroy the [object Object] bug by explicitly extracting strings from bad JSON
+            // Further extraction in case of nested [object Object] artifacts
             if (typeof query === 'object' && query !== null) {
                 query = query.query || query.q || query.search_term || Object.values(query)[0];
             }
             if (typeof query !== 'string' || !query.trim()) continue;
 
-            await sleep(5000); 
+            await sleep(5000); // Strict Tavily Pacing
             
             eventBus.publish('PIPELINE_ACTION', { action: `Executing Search: "${query}"` });
             
