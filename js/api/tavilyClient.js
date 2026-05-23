@@ -1,4 +1,5 @@
 // js/api/tavilyClient.js
+import { eventBus } from '../core/eventBus.js';
 
 export class TavilyClient {
     constructor(apiKey) {
@@ -8,11 +9,11 @@ export class TavilyClient {
     async executeSearch(query, advanced = true) {
         const payload = {
             query: query,
-            search_depth: "advanced", // FORCED ADVANCED DEPTH
+            search_depth: "advanced",
             include_raw_content: true,
             include_domains: [],
             exclude_domains: [],
-            max_results: 18 // FORCED 18 RESULTS PER QUERY
+            max_results: 18 
         };
 
         const controller = new AbortController();
@@ -28,11 +29,20 @@ export class TavilyClient {
 
             clearTimeout(timeoutId);
 
-            if (!response.ok) throw new Error(`Tavily API Error: ${response.status}`);
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Tavily API Error (${response.status}): ${errText}`);
+            }
+            
             return await response.json();
+
         } catch (error) {
             clearTimeout(timeoutId);
             console.error(`[TavilyClient] Query failed: "${query}"`, error);
+            
+            // Explicitly broadcast the error to the UI so the user knows exactly why it failed
+            eventBus.publish('PIPELINE_ERROR', { error: `Search Engine Fault: ${error.message}` });
+            
             return { results: [] }; 
         }
     }
