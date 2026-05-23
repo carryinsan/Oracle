@@ -22,7 +22,7 @@ class ReportViewer {
         eventBus.subscribe('ROUTE_CHANGED', (data) => {
             if (data.path === '/research') {
                 this.bindLiveSourcesToggle();
-                this.forceSourceUIRefresh(); // Catch up on missed counts
+                this.forceSourceUIRefresh(); 
             }
             if (data.path === '/report') this.renderFinalReport();
         });
@@ -122,12 +122,35 @@ class ReportViewer {
     }
 
     createSourceBar(source) {
-        return `
-            <div class="source-bar">
-                <span class="source-title">${(source.title || "Extracted Document").substring(0, 80)}...</span>
-                <span class="source-url">${source.url}</span>
-            </div>
-        `;
+        try {
+            // 1. Extract the clean domain name (e.g., youtube.com)
+            const urlObj = new URL(source.url);
+            const domain = urlObj.hostname.replace('www.', '');
+            
+            // 2. Identify if the document is a direct PDF download
+            const isPdf = source.url.toLowerCase().endsWith('.pdf');
+            
+            // 3. Fetch the official company logo via Google Favicon API, or use a PDF icon
+            let iconUrl = isPdf 
+                ? 'https://upload.wikimedia.org/wikipedia/commons/8/87/PDF_file_icon.svg' 
+                : `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+
+            // 4. Return the premium HTML structure
+            return `
+                <a href="${source.url}" target="_blank" class="source-bar-link">
+                    <div class="source-bar-premium">
+                        <img src="${iconUrl}" alt="${domain} logo" class="source-logo" onerror="this.src='https://www.google.com/s2/favicons?domain=google.com&sz=64'">
+                        <div class="source-info">
+                            <span class="source-title">${(source.title || "Extracted Document").substring(0, 80)}...</span>
+                            <span class="source-url">${domain} • ${(source.url).substring(0, 45)}...</span>
+                        </div>
+                    </div>
+                </a>
+            `;
+        } catch (e) {
+            // Fallback just in case a malformed URL slips through
+            return `<div class="source-bar-premium"><span class="source-title">${source.title || "Unknown Source"}</span></div>`;
+        }
     }
 
     simpleMarkdownParse(text) {
