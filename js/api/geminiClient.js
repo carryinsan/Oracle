@@ -2,7 +2,6 @@
 import { fetchWithRetry } from './geminiRetry.js';
 import { GeminiStreamer } from './geminiStream.js';
 
-// The unbreakable 3-second breather function
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export class GeminiClient {
@@ -11,8 +10,8 @@ export class GeminiClient {
     }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
-        // ENFORCE 3-SECOND BREAK BEFORE EVERY CALL
-        await sleep(3000); 
+        // STRICT 5.5s DELAY: Mathematically prevents exceeding 15 Requests Per Minute
+        await sleep(5500); 
 
         const payload = { promptText, systemInstruction, expectJson, stream: false };
 
@@ -31,8 +30,8 @@ export class GeminiClient {
     }
 
     async streamContent(promptText, systemInstruction = "") {
-        // ENFORCE 3-SECOND BREAK BEFORE EVERY CALL
-        await sleep(3000);
+        // STRICT 5.5s DELAY
+        await sleep(5500);
 
         const payload = { promptText, systemInstruction, expectJson: false, stream: true };
 
