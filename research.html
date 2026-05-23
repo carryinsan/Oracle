@@ -1,22 +1,202 @@
-<div class="sidebar-layout animate-reveal" id="research-view">
-    <aside id="timeline-panel" class="frosted-glass scroll-container" style="padding: 1.5rem; position: relative;">
-        <h3 style="font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem;">Execution Pipeline</h3>
-        <div id="timeline-container"></div>
+<style>
+    /* Premium Mission Control Variables */
+    :root {
+        --bg-color: #050507;
+        --color-surface: rgba(15, 15, 20, 0.7);
+        --color-surface-hover: rgba(25, 25, 35, 0.9);
+        --text-primary: #f0f0f5;
+        --text-secondary: #9aa0a6;
+        --glow-accent: #3b82f6;
+        --glow-success: #10b981;
+        --border-subtle: rgba(255, 255, 255, 0.08);
+        --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    /* Total Screen Lock & Flex Constraint (Fixes the Scroll Bug) */
+    .research-master-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        height: 100vh; /* Locks to exact screen height */
+        width: 100vw;
+        gap: 24px;
+        padding: 24px;
+        background: radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.1), transparent 60%), var(--bg-color);
+        box-sizing: border-box;
+        overflow: hidden; /* Prevents whole-page scrolling */
+    }
+
+    /* Premium Glassmorphism */
+    .glass-panel {
+        background: var(--color-surface);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border-subtle);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Custom Sleek Scrollbars */
+    .scroll-container {
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--glow-accent) transparent;
+    }
+    .scroll-container::-webkit-scrollbar { width: 6px; }
+    .scroll-container::-webkit-scrollbar-track { background: transparent; }
+    .scroll-container::-webkit-scrollbar-thumb { 
+        background: rgba(59, 130, 246, 0.3); 
+        border-radius: 10px; 
+    }
+    .scroll-container::-webkit-scrollbar-thumb:hover { background: var(--glow-accent); }
+
+    /* Timeline Sidebar */
+    .timeline-header {
+        padding: 1.5rem;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: rgba(0,0,0,0.2);
+    }
+    #timeline-container { padding: 1.5rem; }
+
+    /* Mission Control Header */
+    .feed-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-subtle);
+        background: linear-gradient(180deg, rgba(25,25,35,0.8) 0%, rgba(15,15,20,0.8) 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 10;
+    }
+
+    .task-display-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    /* The 'Active Pulse' Indicator */
+    .status-pulse {
+        width: 10px;
+        height: 10px;
+        background-color: var(--glow-success);
+        border-radius: 50%;
+        box-shadow: 0 0 10px var(--glow-success);
+        animation: pulse-animation 1.5s infinite;
+    }
+
+    @keyframes pulse-animation {
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    #current-task-display {
+        font-family: var(--font-primary);
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    /* Tactical Pill Button */
+    .btn-sources {
+        background: rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: var(--font-primary);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+    }
+    .btn-sources:hover {
+        background: var(--glow-accent);
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        transform: translateY(-1px);
+    }
+
+    /* The Live Terminal Logs */
+    #live-log-container {
+        flex: 1; /* This is the magic fix that forces it to take remaining height */
+        padding: 1.5rem;
+        font-family: var(--font-mono); /* Hacker/Terminal look */
+        font-size: 0.9rem;
+        line-height: 1.7;
+        color: var(--text-secondary);
+        background: rgba(0, 0, 0, 0.2);
+    }
+
+    /* Live Sources Sliding Panel */
+    #live-sources-panel {
+        position: absolute;
+        top: 76px; /* Sits exactly under the header */
+        right: 0;
+        width: 100%;
+        max-height: 60vh;
+        background: rgba(10, 10, 15, 0.95);
+        border-bottom: 1px solid var(--glow-accent);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        z-index: 20;
+        padding: 1.5rem;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+    }
+
+    /* Fade-in Animation */
+    @keyframes fadeInUp {
+        0% { opacity: 0; transform: translateY(15px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+    .animate-reveal { animation: fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .research-master-layout {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr;
+            padding: 10px;
+            gap: 10px;
+        }
+        #timeline-panel { display: none; /* Hide timeline on phones to maximize space */ }
+    }
+</style>
+
+<div class="research-master-layout animate-reveal" id="research-view">
+    
+    <aside id="timeline-panel" class="glass-panel">
+        <div class="timeline-header">Execution Pipeline</div>
+        <div id="timeline-container" class="scroll-container">
+            </div>
     </aside>
 
-    <section id="research-feed" class="frosted-glass" style="display: flex; flex-direction: column; overflow: hidden; position: relative;">
+    <section id="research-feed" class="glass-panel" style="position: relative;">
         
-        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-subtle); z-index: 2; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3);">
-            <h2 id="current-task-display" style="font-weight: 500; font-size: 1.2rem;">Initializing DAG Orchestration...</h2>
-            <button id="toggle-live-sources-btn" class="action-button">Researching 0 Sources ▼</button>
+        <div class="feed-header">
+            <div class="task-display-wrapper">
+                <div class="status-pulse"></div>
+                <h2 id="current-task-display">Initializing DAG Orchestration...</h2>
+            </div>
+            <button id="toggle-live-sources-btn" class="btn-sources">Researching 0 Sources ▼</button>
         </div>
 
-        <div id="live-sources-panel" class="scroll-container" style="display: none; position: absolute; top: 75px; right: 0; width: 100%; max-height: calc(100% - 75px); background: rgba(10, 10, 15, 0.95); z-index: 10; padding: 1.5rem; border-bottom: 1px solid var(--border-subtle); backdrop-filter: blur(10px);">
+        <div id="live-sources-panel" class="scroll-container" style="display: none;">
             <div id="live-sources-list">
                 </div>
         </div>
 
-        <article id="live-log-container" class="scroll-container" style="flex: 1; padding: 2rem; z-index: 1;">
-        </article>
+        <article id="live-log-container" class="scroll-container">
+            </article>
+        
     </section>
 </div>
