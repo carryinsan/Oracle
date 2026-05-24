@@ -9,7 +9,9 @@ export class OpenRouterClient {
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
         await sleep(3500); // 20 RPM Protection
-        const payload = { promptText, systemInstruction, expectJson, stream: false };
+        
+        // SILENT STREAMING: Force stream to true to bypass Vercel 30s timeout
+        const payload = { promptText, systemInstruction, expectJson, stream: true };
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -17,9 +19,31 @@ export class OpenRouterClient {
         });
         if (!response.ok) throw new Error(`OpenRouter API Error: ${response.status}`);
         
-        const data = await response.json();
-        const output = data.choices?.[0]?.message?.content || "";
-        return expectJson ? this._parseStrictJson(output) : output;
+        // Secretly accumulate the chunks in the background
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '));
+
+            for (const line of lines) {
+                const dataStr = line.replace('data: ', '').trim();
+                if (dataStr === '[DONE]') continue;
+                try {
+                    const data = JSON.parse(dataStr);
+                    const textChunk = data.choices?.[0]?.delta?.content || "";
+                    if (textChunk) {
+                        fullText += textChunk; 
+                        // Intentionally NOT emitting to eventBus to keep UI clean
+                    }
+                } catch (e) { }
+            }
+        }
+        return expectJson ? this._parseStrictJson(fullText) : fullText;
     }
 
     async streamContent(promptText, systemInstruction = "") {
@@ -50,7 +74,7 @@ export class OpenRouterClient {
                     const textChunk = data.choices?.[0]?.delta?.content || "";
                     if (textChunk) {
                         fullText += textChunk;
-                        eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk });
+                        eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk }); // Normal UI Streaming
                     }
                 } catch (e) { }
             }
