@@ -14,12 +14,10 @@
         :root {
             --bg-color: #050507;
             --color-surface: rgba(15, 15, 20, 0.7);
-            --color-surface-hover: rgba(25, 25, 35, 0.9);
             --text-primary: #f0f0f5;
             --text-secondary: #9aa0a6;
             --glow-accent: #3b82f6;
             --glow-indigo: #6366f1;
-            --glow-success: #10b981;
             --border-subtle: rgba(255, 255, 255, 0.08);
             --font-primary: 'Inter', system-ui, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
@@ -35,7 +33,7 @@
             min-height: 100vh;
         }
 
-        /* 1. The Quantum Canvas */
+        /* The Quantum Canvas */
         .quantum-canvas {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -50,57 +48,134 @@
             opacity: 0.4;
             animation: float 20s infinite alternate ease-in-out;
         }
-        .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, var(--glow-accent), transparent 70%); top: -100px; left: -100px; }
-        .orb-2 { width: 600px; height: 600px; background: radial-gradient(circle, var(--glow-indigo), transparent 70%); bottom: -200px; right: -100px; animation-delay: -10s; }
-        @keyframes float { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(100px, 50px) scale(1.1); } }
+        .orb-1 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, var(--glow-accent), transparent 70%);
+            top: -100px; left: -100px;
+        }
+        .orb-2 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, var(--glow-indigo), transparent 70%);
+            bottom: -200px; right: -100px;
+            animation-delay: -10s;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(100px, 50px) scale(1.1); }
+        }
 
-        /* 2. SPA View Visibility Logic */
-        #app { width: 100vw; height: 100vh; overflow: hidden; }
-        .dynamic-view { display: none; width: 100%; height: 100%; }
-        
-        /* 3. Home View Styling */
-        #home-content { display: grid; grid-template-columns: 300px 1fr; height: 100vh; gap: 2rem; padding: 2rem; }
-        .sidebar { background: var(--color-surface); backdrop-filter: blur(20px); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
-        .main-module { display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 850px; margin: 0 auto; width: 100%; }
-        .lexis-logo { font-size: 4rem; font-weight: 300; letter-spacing: -2px; margin-bottom: 2.5rem; background: linear-gradient(135deg, #ffffff, var(--text-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .search-container { position: relative; width: 100%; margin-bottom: 1.5rem; }
-        #search-input { width: 100%; padding: 1.2rem 4rem 1.2rem 1.8rem; font-size: 1.1rem; background: rgba(10, 10, 15, 0.6); border: 1px solid var(--border-subtle); border-radius: 25px; color: var(--text-primary); backdrop-filter: blur(10px); outline: none; transition: all 0.3s ease; }
-        #btn-send { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: var(--glow-accent); border: none; width: 44px; height: 44px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s ease; }
-        #btn-send:hover { background: #2563eb; transform: translateY(-50%) scale(1.08); }
+        /* SPA Target Container */
+        #app { 
+            width: 100vw; 
+            min-height: 100vh; 
+        }
+
+        /* FAIL-SAFE VISIBILITY LOGIC */
+        #home-content {
+            display: grid; /* Home is visible by default */
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+            gap: 2rem;
+            padding: 2rem;
+        }
+        .dynamic-view {
+            display: none; /* Injected pages stay hidden until ready */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* The Asymmetric Interface Matrix */
+        .sidebar {
+            background: var(--color-surface);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .main-module {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            max-width: 850px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .lexis-logo {
+            font-size: 4rem;
+            font-weight: 300;
+            letter-spacing: -2px;
+            margin-bottom: 2.5rem;
+            background: linear-gradient(135deg, #ffffff, var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* The Neutralized Search Container */
+        .search-container {
+            position: relative;
+            width: 100%;
+            margin-bottom: 1.5rem;
+        }
+
+        #search-input {
+            width: 100%;
+            padding: 1.2rem 4rem 1.2rem 1.8rem;
+            font-size: 1.1rem;
+            background: rgba(10, 10, 15, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: 25px;
+            color: var(--text-primary);
+            backdrop-filter: blur(10px);
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #btn-send {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--glow-accent);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #btn-send:hover {
+            background: #2563eb;
+            transform: translateY(-50%) scale(1.08);
+        }
+
         #btn-send svg { width: 20px; height: 20px; fill: white; margin-right: -2px; }
-        .dropzone { width: 100%; padding: 2rem; border: 2px dashed var(--border-subtle); border-radius: 16px; text-align: center; color: var(--text-secondary); font-family: var(--font-mono); background: rgba(0, 0, 0, 0.2); cursor: pointer; }
 
-        /* 4. Research View & Report View Shared Styling */
-        .glass-panel { background: var(--color-surface); backdrop-filter: blur(20px); border: 1px solid var(--border-subtle); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
-        .scroll-container { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--glow-accent) transparent; }
-        .scroll-container::-webkit-scrollbar { width: 6px; }
-        .scroll-container::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.3); border-radius: 10px; }
-        .scroll-container::-webkit-scrollbar-thumb:hover { background: var(--glow-accent); }
-        .research-master-layout { display: grid; grid-template-columns: 320px 1fr; height: 100vh; gap: 24px; padding: 24px; box-sizing: border-box; }
-        .timeline-header, .feed-header { padding: 1.5rem; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid var(--border-subtle); background: rgba(0,0,0,0.2); }
-        .feed-header { background: linear-gradient(180deg, rgba(25,25,35,0.8) 0%, rgba(15,15,20,0.8) 100%); display: flex; justify-content: space-between; align-items: center; }
-        #timeline-container { padding: 1.5rem; }
-        .task-display-wrapper { display: flex; align-items: center; gap: 12px; }
-        .status-pulse { width: 10px; height: 10px; background-color: var(--glow-success); border-radius: 50%; box-shadow: 0 0 10px var(--glow-success); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
-        #current-task-display { font-family: var(--font-primary); font-weight: 600; font-size: 1.1rem; margin: 0; }
-        .btn-sources { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #fff; padding: 8px 16px; border-radius: 20px; font-family: var(--font-primary); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
-        .btn-sources:hover { background: var(--glow-accent); box-shadow: 0 0 20px rgba(59, 130, 246, 0.6); }
-        #live-log-container { flex: 1; padding: 1.5rem; font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.7; color: var(--text-secondary); background: rgba(0, 0, 0, 0.2); }
-        
-        /* 5. Visual Source Cards */
-        #live-sources-panel { position: absolute; top: 76px; right: 0; width: 100%; max-height: 60vh; background: rgba(10, 10, 15, 0.95); border-bottom: 1px solid var(--glow-accent); z-index: 20; padding: 1.5rem; }
-        .source-bar-link { display: block; text-decoration: none; margin-bottom: 12px; }
-        .source-bar-premium { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-left: 3px solid var(--glow-accent); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 16px; transition: all 0.3s; }
-        .source-bar-premium:hover { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.5); transform: translateX(6px); }
-        .source-logo { width: 32px; height: 32px; border-radius: 6px; background: rgba(255, 255, 255, 0.9); padding: 4px; flex-shrink: 0; object-fit: contain;}
-        .source-info { display: flex; flex-direction: column; overflow: hidden; }
-        .source-title { font-weight: 600; font-size: 0.9rem; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-        .source-url { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dropzone {
+            width: 100%;
+            padding: 2rem;
+            border: 2px dashed var(--border-subtle);
+            border-radius: 16px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            background: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
 
         @media (max-width: 768px) {
-            #home-content, .research-master-layout { grid-template-columns: 1fr; padding: 1rem; }
-            .sidebar, #timeline-panel { display: none; }
+            #home-content { grid-template-columns: 1fr; padding: 1rem; }
+            .sidebar { display: none; }
         }
     </style>
 </head>
@@ -112,7 +187,6 @@
     </div>
 
     <div id="app">
-        
         <div id="home-content">
             <aside class="sidebar">
                 <div style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary);">SYSTEM STATUS</div>
@@ -121,72 +195,19 @@
 
             <main class="main-module">
                 <h1 class="lexis-logo">LexisAI</h1>
+                
                 <div class="search-container">
                     <input type="text" id="search-input" placeholder="Execute a predictive analysis..." autocomplete="off">
                     <button type="button" id="btn-send">
                         <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                     </button>
                 </div>
+
                 <div class="dropzone" id="document-dropzone">
                     [ + Drag & Drop Context Files Here ]
                 </div>
             </main>
         </div>
-
-        <div id="view-research" class="dynamic-view">
-            <div class="research-master-layout" id="research-view">
-                
-                <aside id="timeline-panel" class="glass-panel">
-                    <div class="timeline-header">Execution Pipeline</div>
-                    <div id="timeline-container" class="scroll-container">
-                        </div>
-                </aside>
-
-                <section id="research-feed" class="glass-panel" style="position: relative;">
-                    <div class="feed-header">
-                        <div class="task-display-wrapper">
-                            <div class="status-pulse"></div>
-                            <h2 id="current-task-display">Initializing DAG Orchestration...</h2>
-                        </div>
-                        <button id="toggle-live-sources-btn" class="btn-sources">Researching 0 Sources ▼</button>
-                    </div>
-
-                    <div id="live-sources-panel" class="scroll-container" style="display: none;">
-                        <div id="live-sources-list"></div>
-                    </div>
-
-                    <article id="live-log-container" class="scroll-container">
-                        </article>
-                </section>
-            </div>
-        </div>
-
-        <div id="view-report" class="dynamic-view">
-             <div class="research-master-layout" style="grid-template-columns: 250px 1fr;">
-                <aside id="dynamic-toc" class="glass-panel scroll-container" style="padding: 1.5rem;"></aside>
-                
-                <section class="glass-panel" style="background: white; color: black; position: relative;">
-                    <nav style="padding: 1rem; background: rgba(0,0,0,0.05); display: flex; gap: 1rem; border-bottom: 1px solid #ddd;">
-                        <button id="btn-back-home" class="btn-sources" style="color: black; border-color: #aaa;">Back to Home</button>
-                        <button id="btn-download-pdf" class="btn-sources" style="color: black; border-color: #aaa;">Download PDF</button>
-                        <button id="btn-view-final-sources" class="btn-sources" style="color: black; border-color: #aaa;">View Sources</button>
-                    </nav>
-                    <main id="pdf-export-area" class="scroll-container" style="flex: 1; padding: 3rem;">
-                        <h1>LexisAI Final Synthesis</h1>
-                        <p id="meta-sources-final" style="color: gray; margin-bottom: 2rem;"></p>
-                        <div id="report-content-container"></div>
-                    </main>
-                </section>
-
-                <div id="final-sources-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center;">
-                    <div class="glass-panel scroll-container" style="width: 80%; max-height: 80vh; padding: 20px;">
-                        <button id="close-sources-modal" class="btn-sources" style="float: right; margin-bottom: 1rem;">Close</button>
-                        <div id="final-sources-list"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 
     <script type="module" src="./js/core/app.js"></script>
