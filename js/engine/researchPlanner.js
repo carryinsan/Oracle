@@ -9,7 +9,7 @@ class ResearchPlanner {
         const client = new GroqClient();
         const payload = `KNOWLEDGE BASE: ${researchState.get('Compiled_Knowledge_Base')}`;
         
-        eventBus.publish('PIPELINE_ACTION', { action: 'Generating Structural Outline (via Groq Llama Scout)...' });
+        eventBus.publish('PIPELINE_ACTION', { action: 'Generating Structural Outline...' });
         const outline = await client.generateContent(Prompts.PASS_13_OUTLINE, payload, false);
         researchState.update('master_outline', outline);
     }
@@ -18,7 +18,7 @@ class ResearchPlanner {
         const client = new GroqClient();
         const payload = `OUTLINE: ${researchState.get('master_outline')}\nCONTRADICTIONS: ${JSON.stringify(researchState.get('contradictions'))}`;
         
-        eventBus.publish('PIPELINE_ACTION', { action: 'Executing Red-Team Critique (via Groq Llama Scout)...' });
+        eventBus.publish('PIPELINE_ACTION', { action: 'Executing Structural Integrity Critique...' });
         const critique = await client.generateContent(Prompts.PASS_14_CRITIQUE, payload, false);
         researchState.update('red_team_critique', critique);
     }
