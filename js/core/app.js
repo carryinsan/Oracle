@@ -1,5 +1,6 @@
 // js/core/app.js
 import { router } from './router.js';
+import { oraclePipeline } from '../engine/oraclePipeline.js';
 import { researchState } from '../engine/researchState.js';
 import { eventBus } from './eventBus.js';
 
@@ -10,55 +11,66 @@ import '../ui/researchFeed.js';
 import '../ui/reportViewer.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Silent URL Cleaner (Stops the '?' bug)
-    if (window.location.href.includes('?')) {
-        const cleanUrl = window.location.href.replace(/\?/g, '');
-        window.history.replaceState({}, document.title, cleanUrl);
+    try {
+        // 1. SILENT URL CLEANER (The Ultimate "?" Killer)
+        if (window.location.href.includes('?')) {
+            const cleanUrl = window.location.href.replace(/\?/g, '');
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+
+        // 2. Initialize the SPA Router
+        router.init();
+
+        const searchInput = document.querySelector('input[type="text"]') || document.querySelector('input');
+
+        const triggerPipeline = (e) => {
+            if (e) {
+                e.preventDefault();
+                if (typeof e.stopPropagation === 'function') e.stopPropagation();
+            }
+
+            const query = searchInput ? searchInput.value.trim() : "";
+            if (!query) return;
+
+            researchState.update('user_prompt', query);
+            window.location.hash = '/research';
+
+            setTimeout(() => {
+                eventBus.publish('RESEARCH_INITIATED', { query });
+            }, 300);
+        };
+
+        // 3. TARGETED FORM LOCKDOWN
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                triggerPipeline(e);
+            });
+        });
+
+        // 4. Bind the "Enter" key explicitly
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    triggerPipeline(e);
+                }
+            });
+        }
+
+        // 5. THE TYPE-SAFE CLICK SHIELD
+        document.addEventListener('click', (e) => {
+            // Guarantee we are interacting with an HTML Element, not a text node
+            const target = e.target instanceof Element ? e.target : e.target.parentElement;
+            if (!target) return;
+            
+            if (target.closest('svg') || target.id === 'btn-send' || target.closest('.send-btn')) {
+                e.preventDefault();
+                triggerPipeline(e);
+            }
+        });
+
+    } catch (error) {
+        console.error("[App Initialization Fatal Error]:", error);
     }
-
-    // 2. Boot the Router
-    router.init();
-
-    // 3. Centralized Launch Sequence
-    const triggerPipeline = (queryText) => {
-        if (!queryText) return;
-        
-        // Lock query into memory
-        researchState.update('user_prompt', queryText);
-        
-        // Force the URL route change
-        window.location.hash = '/research';
-        
-        // Brief delay to allow the HTML to render, then fire the engine
-        setTimeout(() => {
-            eventBus.publish('RESEARCH_INITIATED', { query: queryText });
-        }, 300);
-    };
-
-    // THE FIX: Global Form Lockdown
-    document.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const input = document.querySelector('input[type="text"]') || document.querySelector('input');
-        if (input) triggerPipeline(input.value.trim());
-    });
-
-    // THE FIX: Global "Enter" Key Catcher
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
-            e.preventDefault();
-            triggerPipeline(e.target.value.trim());
-        }
-    });
-
-    // THE FIX: Global SVG / Button Catcher
-    document.addEventListener('click', (e) => {
-        // Did the user click the send button, the SVG icon, or a path inside the SVG?
-        const isSendClick = e.target.closest('#btn-send') || e.target.closest('svg.send-btn') || e.target.closest('svg');
-        
-        if (isSendClick) {
-            e.preventDefault();
-            const input = document.querySelector('input[type="text"]') || document.querySelector('input');
-            if (input) triggerPipeline(input.value.trim());
-        }
-    });
 });
