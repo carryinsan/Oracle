@@ -1,61 +1,70 @@
 // js/core/router.js
 import { eventBus } from './eventBus.js';
 
-class Router {
-    constructor() {
-        this.routes = {
-            '/': 'index.html', 
-            '/research': 'research.html',
-            '/report': 'report.html',
-            '/history': 'history.html'
-        };
-    }
-
+export const router = {
     init() {
         window.addEventListener('hashchange', () => this.handleRoute());
-        // Trigger route check immediately on load
-        this.handleRoute(); 
-    }
+        
+        // Small 50ms buffer to ensure DOM paints properly before checking URL
+        setTimeout(() => this.handleRoute(), 50);
+    },
 
     async handleRoute() {
-        let path = window.location.hash.replace('#', '') || '/';
+        const hash = window.location.hash || '#/';
+        const homeContent = document.getElementById('home-content');
         
-        // If we are on the home screen, clear the dynamic app container
-        if (path === '/') {
-            const appDiv = document.getElementById('app');
-            if (appDiv) appDiv.innerHTML = ''; 
-            return;
+        // 1. Instantly hide all injected dynamic views to prevent overlap
+        const dynamicViews = document.querySelectorAll('.dynamic-view');
+        dynamicViews.forEach(view => view.style.display = 'none');
+
+        // 2. Safe Toggle Logic (No innerHTML destruction)
+        if (hash === '#/' || hash === '') {
+            if (homeContent) homeContent.style.display = 'grid';
+        } 
+        else if (hash === '#/research') {
+            if (homeContent) homeContent.style.display = 'none';
+            await this.loadView('./research.html');
+            eventBus.publish('ROUTE_CHANGED', { path: '/research' });
+        } 
+        else if (hash === '#/report') {
+            if (homeContent) homeContent.style.display = 'none';
+            await this.loadView('./report.html');
+            eventBus.publish('ROUTE_CHANGED', { path: '/report' });
+        } 
+        else if (hash === '#/history') {
+            if (homeContent) homeContent.style.display = 'none';
+            await this.loadView('./history.html');
+            eventBus.publish('ROUTE_CHANGED', { path: '/history' });
         }
+    },
 
-        const file = this.routes[path];
-        if (!file) return;
+    async loadView(url) {
+        const viewId = 'view-' + url.replace('./', '').replace('.html', '');
+        let viewContainer = document.getElementById(viewId);
 
-        try {
-            const response = await fetch(file);
-            if (!response.ok) throw new Error(`404: ${file} not found`);
-            const html = await response.text();
-            
-            // THE FIX: The Safe Mount. If <div id="app"> is missing from index.html, build it.
-            let appContainer = document.getElementById('app');
-            if (!appContainer) {
-                appContainer = document.createElement('div');
-                appContainer.id = 'app';
-                document.body.appendChild(appContainer);
+        // If we haven't fetched this specific page yet, fetch and inject it safely
+        if (!viewContainer) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to load ${url}`);
+                const html = await response.text();
+                
+                viewContainer = document.createElement('div');
+                viewContainer.id = viewId;
+                viewContainer.className = 'dynamic-view';
+                viewContainer.innerHTML = html;
+                
+                const appDiv = document.getElementById('app');
+                if (appDiv) appDiv.appendChild(viewContainer);
+            } catch (error) {
+                console.error('[Router Error]:', error);
+                // Fail-safe: Auto-recover to the home screen if fetch crashes
+                window.location.hash = '#/';
+                return;
             }
-            
-            appContainer.innerHTML = html;
-            
-            // Notify UI controllers to bind to the newly injected HTML
-            eventBus.publish('ROUTE_CHANGED', { path });
-
-        } catch (error) {
-            console.error('[Router] Fatal Routing Error:', error);
         }
+        
+        // Make the requested view visible
+        viewContainer.style.display = 'block';
     }
-
-    navigateTo(path) {
-        window.location.hash = path;
-    }
-}
-
-export const router = new Router();
+};
