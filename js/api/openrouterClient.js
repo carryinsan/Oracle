@@ -8,9 +8,8 @@ export class OpenRouterClient {
     constructor() { this.baseUrl = "/api/openrouter"; }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
-        await sleep(3500); 
-        
-        const payload = { promptText, systemInstruction, expectJson, stream: true };
+        await sleep(3500); // 20 RPM Protection
+        const payload = { promptText, systemInstruction, expectJson, stream: false };
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -18,33 +17,13 @@ export class OpenRouterClient {
         });
         if (!response.ok) throw new Error(`OpenRouter API Error: ${response.status}`);
         
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullText = "";
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '));
-
-            for (const line of lines) {
-                const dataStr = line.replace('data: ', '').trim();
-                if (dataStr === '[DONE]') continue;
-                try {
-                    const data = JSON.parse(dataStr);
-                    const textChunk = data.choices?.[0]?.delta?.content || "";
-                    if (textChunk) {
-                        fullText += textChunk; 
-                    }
-                } catch (e) { }
-            }
-        }
-        return expectJson ? this._parseStrictJson(fullText) : fullText;
+        const data = await response.json();
+        const output = data.choices?.[0]?.message?.content || "";
+        return expectJson ? this._parseStrictJson(output) : output;
     }
 
     async streamContent(promptText, systemInstruction = "") {
-        await sleep(3500); 
+        await sleep(3500); // 20 RPM Protection
         const payload = { promptText, systemInstruction, expectJson: false, stream: true };
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
@@ -71,7 +50,7 @@ export class OpenRouterClient {
                     const textChunk = data.choices?.[0]?.delta?.content || "";
                     if (textChunk) {
                         fullText += textChunk;
-                        eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk }); 
+                        eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk });
                     }
                 } catch (e) { }
             }
