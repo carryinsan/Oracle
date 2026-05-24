@@ -2,50 +2,71 @@
 import { eventBus } from '../core/eventBus.js';
 
 export class GeminiStreamer {
+    
+    // 1. NATIVE STREAMING: Used for Phase 3 (Generation) where we WANT the UI to update live.
     static async processStream(response) {
-        if (!response.body) throw new Error("Response body is not readable.");
-        
         const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-        let fullText = ""; // FIX: Accumulate the final text
+        const decoder = new TextDecoder();
+        let fullText = "";
 
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    eventBus.publish('LLM_STREAM_COMPLETE', { status: 'success' });
-                    break;
-                }
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '));
 
-                buffer += decoder.decode(value, { stream: true });
+            for (const line of lines) {
+                const dataStr = line.replace('data: ', '').trim();
+                if (dataStr === '[DONE]') continue;
                 
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep incomplete line
-
-                for (const line of lines) {
-                    if (line.trim().startsWith('data: ')) {
-                        const jsonStr = line.replace('data: ', '').trim();
-                        if (jsonStr === '[DONE]') continue;
-
-                        try {
-                            const parsed = JSON.parse(jsonStr);
-                            const textChunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                            if (textChunk) {
-                                fullText += textChunk; // Accumulate here
-                                eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk });
-                            }
-                        } catch (e) {
-                            // Ignore partial JSON parses
-                        }
+                try {
+                    const data = JSON.parse(dataStr);
+                    const textChunk = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                    if (textChunk) {
+                        fullText += textChunk;
+                        // Broadcasts the text to the UI to create the typing effect
+                        eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk });
                     }
+                } catch (e) { 
+                    // Silently ignore incomplete JSON chunks
                 }
             }
-            return fullText; // FIX: Return accumulated string to the assembler
-        } catch (error) {
-            console.error("[GeminiStream] Error reading stream:", error);
-            eventBus.publish('LLM_STREAM_ERROR', { error: error.message });
-            throw error;
         }
+        return fullText;
+    }
+
+    // 2. SILENT STREAMING: Used for heavy backend passes (like Phase 12 Synthesis).
+    // Bypasses Vercel's 30s timeout by actively receiving data, but hides it from the UI.
+    static async processSilentStream(response) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '));
+
+            for (const line of lines) {
+                const dataStr = line.replace('data: ', '').trim();
+                if (dataStr === '[DONE]') continue;
+                
+                try {
+                    const data = JSON.parse(dataStr);
+                    const textChunk = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                    if (textChunk) {
+                        fullText += textChunk;
+                        // CRITICAL DIFFERENCE: We do NOT publish to the eventBus here.
+                        // The text accumulates secretly in the background.
+                    }
+                } catch (e) { 
+                    // Silently ignore incomplete JSON chunks
+                }
+            }
+        }
+        return fullText;
     }
 }
