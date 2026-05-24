@@ -12,7 +12,6 @@ import '../ui/researchProgress.js';
 import '../ui/researchFeed.js';
 import '../ui/reportViewer.js';
 
-// MODIFIED: Injected the missing opening curly brace '{' to validate the arrow function
 document.addEventListener('DOMContentLoaded', () => {
     try {
         // Initialize SPA Router
@@ -72,12 +71,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // MODIFIED: Replaced fragile element target checks with robust event delegation using .closest()
         // Catch the SVG / Button Click safely
         document.addEventListener('click', (e) => {
-            const target = e.target instanceof Element ? e.target : e.target.parentElement;
-            if (!target) return;
+            const sendBtn = e.target.closest('#btn-send');
             
-            if (target.closest('svg') || target.id === 'btn-send' || target.closest('.send-btn')) {
+            if (sendBtn) {
                 e.preventDefault();
                 triggerPipeline();
             }
