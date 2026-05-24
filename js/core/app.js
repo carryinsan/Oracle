@@ -11,36 +11,50 @@ import '../ui/researchFeed.js';
 import '../ui/reportViewer.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize the SPA Router
+    // 1. SILENT URL CLEANER (The Ultimate "?" Killer)
+    // If a wild '?' ever sneaks into the URL, this mathematically erases it 
+    // without reloading the page, saving the SPA router from breaking.
+    if (window.location.href.includes('?')) {
+        const cleanUrl = window.location.href.replace(/\?/g, '');
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
+
+    // 2. Initialize the SPA Router
     router.init();
 
     const searchInput = document.querySelector('input[type="text"]') || document.querySelector('input');
 
     const triggerPipeline = (e) => {
-        if (e) e.preventDefault(); // Annihilates the native reload bug
+        if (e) {
+            e.preventDefault(); 
+            e.stopPropagation(); // Stops the event from bubbling up to any sneaky forms
+        }
 
         const query = searchInput ? searchInput.value.trim() : "";
         if (!query) return;
 
-        // 2. Lock the query into the central state
+        // Lock the query into the central state
         researchState.update('user_prompt', query);
 
-        // 3. Seamlessly transition the UI to the Research Screen
+        // Seamlessly transition the UI
         window.location.hash = '/research';
 
-        // 4. Boot up the DAG Engine after a brief UI transition buffer
+        // Boot up the DAG Engine
         setTimeout(() => {
             eventBus.publish('RESEARCH_INITIATED', { query });
         }, 300);
     };
 
-    // THE FIX: Globally intercept ANY form submissions to prevent the "?" URL reload
-    document.addEventListener('submit', (e) => {
-        e.preventDefault();
-        triggerPipeline(e);
+    // 3. TARGETED FORM LOCKDOWN
+    // Instead of relying on the global document, we explicitly paralyze the form tag itself.
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            triggerPipeline(e);
+        });
     });
 
-    // THE FIX: Bind the "Enter" key explicitly
+    // 4. Bind the "Enter" key explicitly
     if (searchInput) {
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -50,9 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // THE FIX: Bind the new Send SVG Icon click globally
+    // 5. Bind the SVG Icon click globally
     document.addEventListener('click', (e) => {
-        // Checks if the user clicked the new Send SVG (or a path inside it)
         if (e.target.closest('svg') || e.target.id === 'btn-send' || e.target.closest('.send-btn')) {
             e.preventDefault();
             triggerPipeline(e);
