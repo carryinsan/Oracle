@@ -4,8 +4,6 @@ import { eventBus } from './eventBus.js';
 export const router = {
     init() {
         window.addEventListener('hashchange', () => this.handleRoute());
-        
-        // Small 50ms buffer to ensure DOM paints properly before checking URL
         setTimeout(() => this.handleRoute(), 50);
     },
 
@@ -13,18 +11,17 @@ export const router = {
         const hash = window.location.hash || '#/';
         const homeContent = document.getElementById('home-content');
         
-        // 1. Instantly hide all injected dynamic views to prevent overlap
         const dynamicViews = document.querySelectorAll('.dynamic-view');
         dynamicViews.forEach(view => view.style.display = 'none');
 
-        // 2. Safe Toggle Logic (No innerHTML destruction)
         if (hash === '#/' || hash === '') {
             if (homeContent) homeContent.style.display = 'grid';
         } 
         else if (hash === '#/research') {
             if (homeContent) homeContent.style.display = 'none';
             await this.loadView('./research.html');
-            eventBus.publish('ROUTE_CHANGED', { path: '/research' });
+            // The critical broadcast: The HTML is now in the DOM!
+            eventBus.publish('ROUTE_CHANGED', { path: '/research' }); 
         } 
         else if (hash === '#/report') {
             if (homeContent) homeContent.style.display = 'none';
@@ -42,7 +39,6 @@ export const router = {
         const viewId = 'view-' + url.replace('./', '').replace('.html', '');
         let viewContainer = document.getElementById(viewId);
 
-        // If we haven't fetched this specific page yet, fetch and inject it safely
         if (!viewContainer) {
             try {
                 const response = await fetch(url);
@@ -58,13 +54,11 @@ export const router = {
                 if (appDiv) appDiv.appendChild(viewContainer);
             } catch (error) {
                 console.error('[Router Error]:', error);
-                // Fail-safe: Auto-recover to the home screen if fetch crashes
                 window.location.hash = '#/';
                 return;
             }
         }
         
-        // Make the requested view visible
         viewContainer.style.display = 'block';
     }
 };
