@@ -8,9 +8,8 @@ export class OpenRouterClient {
     constructor() { this.baseUrl = "/api/openrouter"; }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
-        await sleep(3500); // 20 RPM Protection
+        await sleep(3500); 
         
-        // SILENT STREAMING: Force stream to true to bypass Vercel 30s timeout
         const payload = { promptText, systemInstruction, expectJson, stream: true };
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
@@ -19,7 +18,6 @@ export class OpenRouterClient {
         });
         if (!response.ok) throw new Error(`OpenRouter API Error: ${response.status}`);
         
-        // Secretly accumulate the chunks in the background
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = "";
@@ -38,7 +36,6 @@ export class OpenRouterClient {
                     const textChunk = data.choices?.[0]?.delta?.content || "";
                     if (textChunk) {
                         fullText += textChunk; 
-                        // Intentionally NOT emitting to eventBus to keep UI clean
                     }
                 } catch (e) { }
             }
@@ -47,7 +44,7 @@ export class OpenRouterClient {
     }
 
     async streamContent(promptText, systemInstruction = "") {
-        await sleep(3500); // 20 RPM Protection
+        await sleep(3500); 
         const payload = { promptText, systemInstruction, expectJson: false, stream: true };
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
@@ -74,7 +71,7 @@ export class OpenRouterClient {
                     const textChunk = data.choices?.[0]?.delta?.content || "";
                     if (textChunk) {
                         fullText += textChunk;
-                        eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk }); // Normal UI Streaming
+                        eventBus.publish('LLM_CHUNK_RECEIVED', { text: textChunk }); 
                     }
                 } catch (e) { }
             }
