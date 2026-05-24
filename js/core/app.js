@@ -1,73 +1,61 @@
 // js/core/app.js
-import { CONFIG } from './config.js';
 import { router } from './router.js';
-import { eventBus } from './eventBus.js';
+import { oraclePipeline } from '../engine/oraclePipeline.js';
 import { researchState } from '../engine/researchState.js';
+import { eventBus } from './eventBus.js';
 
-import '../engine/oraclePipeline.js';
-import '../ui/researchFeed.js';
+// Wake Up Commands for UI Controllers
 import '../ui/researchTimeline.js';
 import '../ui/researchProgress.js';
-import '../ui/thinkingVisualization.js';
+import '../ui/researchFeed.js';
 import '../ui/reportViewer.js';
 
-class LexisApp {
-    constructor() {
-        this.init();
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Initialize the SPA Router
+    router.init();
 
-    init() {
-        console.log(`[${CONFIG.APP_NAME}] Initializing OS v${CONFIG.VERSION}...`);
-        
-        window.addEventListener('error', this.handleGlobalError);
-        window.addEventListener('unhandledrejection', this.handleGlobalPromiseRejection);
+    const searchInput = document.querySelector('input[type="text"]') || document.querySelector('input');
 
-        eventBus.subscribe('ROUTE_CHANGED', (data) => {
-            if (data.path === '/') {
-                this.bindQueryForm();
+    const triggerPipeline = (e) => {
+        if (e) e.preventDefault(); // Annihilates the native reload bug
+
+        const query = searchInput ? searchInput.value.trim() : "";
+        if (!query) return;
+
+        // 2. Lock the query into the central state
+        researchState.update('user_prompt', query);
+
+        // 3. Seamlessly transition the UI to the Research Screen
+        window.location.hash = '/research';
+
+        // 4. Boot up the DAG Engine after a brief UI transition buffer
+        setTimeout(() => {
+            eventBus.publish('RESEARCH_INITIATED', { query });
+        }, 300);
+    };
+
+    // THE FIX: Globally intercept ANY form submissions to prevent the "?" URL reload
+    document.addEventListener('submit', (e) => {
+        e.preventDefault();
+        triggerPipeline(e);
+    });
+
+    // THE FIX: Bind the "Enter" key explicitly
+    if (searchInput) {
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                triggerPipeline(e);
             }
         });
-
-        router.handleRoute();
     }
 
-    bindQueryForm() {
-        const form = document.getElementById('query-form');
-        const input = document.getElementById('main-search-input');
-        
-        if (form && input) {
-            const newForm = form.cloneNode(true);
-            form.parentNode.replaceChild(newForm, form);
-            const newInput = document.getElementById('main-search-input');
-
-            newForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const query = newInput.value.trim();
-                if (query) {
-                    researchState.update('user_prompt', query);
-                    router.navigateTo('/research');
-                    
-                    // STRICT DOM SYNC: Wait for the log container to physically exist before starting
-                    const domCheck = setInterval(() => {
-                        if (document.getElementById('live-log-container')) {
-                            clearInterval(domCheck);
-                            eventBus.publish('RESEARCH_INITIATED', { query });
-                        }
-                    }, 100);
-                }
-            });
+    // THE FIX: Bind the new Send SVG Icon click globally
+    document.addEventListener('click', (e) => {
+        // Checks if the user clicked the new Send SVG (or a path inside it)
+        if (e.target.closest('svg') || e.target.id === 'btn-send' || e.target.closest('.send-btn')) {
+            e.preventDefault();
+            triggerPipeline(e);
         }
-    }
-
-    handleGlobalError(event) {
-        console.error(`[${CONFIG.APP_NAME} Critical]`, event.error);
-    }
-
-    handleGlobalPromiseRejection(event) {
-        console.error(`[${CONFIG.APP_NAME} Async Critical]`, event.reason);
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    window.lexisApp = new LexisApp();
+    });
 });
