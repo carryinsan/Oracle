@@ -38,6 +38,7 @@
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: -1;
+            overflow: hidden;
             pointer-events: none;
         }
         .orb {
@@ -47,13 +48,26 @@
             opacity: 0.4;
             animation: float 20s infinite alternate ease-in-out;
         }
-        .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, var(--glow-accent), transparent 70%); top: -100px; left: -100px; }
-        .orb-2 { width: 600px; height: 600px; background: radial-gradient(circle, var(--glow-indigo), transparent 70%); bottom: -200px; right: -100px; animation-delay: -10s; }
-        @keyframes float { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(100px, 50px) scale(1.1); } }
+        .orb-1 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, var(--glow-accent), transparent 70%);
+            top: -100px; left: -100px;
+        }
+        .orb-2 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, var(--glow-indigo), transparent 70%);
+            bottom: -200px; right: -100px;
+            animation-delay: -10s;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(100px, 50px) scale(1.1); }
+        }
 
         /* 2. SPA Target Container */
         #app { width: 100vw; min-height: 100vh; }
 
+        /* 3. The Asymmetric Interface Matrix */
         .home-layout {
             display: grid;
             grid-template-columns: 300px 1fr;
@@ -68,6 +82,10 @@
             border: 1px solid var(--border-subtle);
             border-radius: 16px;
             padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
 
         .main-module {
@@ -83,13 +101,14 @@
         .lexis-logo {
             font-size: 4rem;
             font-weight: 300;
+            letter-spacing: -2px;
             margin-bottom: 2.5rem;
             background: linear-gradient(135deg, #ffffff, var(--text-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        /* THE TRUE FIX: Non-submitting search interface */
+        /* 4. The Neutralized Search Container */
         .search-container {
             position: relative;
             width: 100%;
@@ -104,11 +123,12 @@
             border: 1px solid var(--border-subtle);
             border-radius: 25px;
             color: var(--text-primary);
+            backdrop-filter: blur(10px);
             outline: none;
             transition: all 0.3s ease;
         }
 
-        /* Explicit type="button" button prevents reloads */
+        /* EXPLICIT: type="button" button to prevent form submission */
         #btn-send {
             position: absolute;
             right: 12px;
@@ -119,13 +139,31 @@
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            cursor: pointer;
             display: flex;
             justify-content: center;
             align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
-        #btn-send svg { width: 20px; height: 20px; fill: white; }
+        #btn-send:hover {
+            background: #2563eb;
+            transform: translateY(-50%) scale(1.08);
+        }
+
+        #btn-send svg { width: 20px; height: 20px; fill: white; margin-right: -2px; }
+
+        .dropzone {
+            width: 100%;
+            padding: 2rem;
+            border: 2px dashed var(--border-subtle);
+            border-radius: 16px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            background: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -138,8 +176,8 @@
     <div id="app">
         <div class="home-layout">
             <aside class="sidebar">
-                <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">System Status</div>
-                <div style="margin-top: 10px; color: var(--glow-accent);">● Engine Online</div>
+                <div style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary);">SYSTEM STATUS</div>
+                <div style="font-size: 0.85rem; color: var(--glow-accent);">● Engine Online</div>
             </aside>
 
             <main class="main-module">
@@ -152,8 +190,8 @@
                     </button>
                 </div>
 
-                <div class="dropzone" id="document-dropzone" style="width: 100%; padding: 2rem; border: 2px dashed var(--border-subtle); border-radius: 16px; text-align: center; color: var(--text-secondary);">
-                    [ + Drag & Drop Context Files ]
+                <div class="dropzone" id="document-dropzone">
+                    [ + Drag & Drop Context Files Here ]
                 </div>
             </main>
         </div>
