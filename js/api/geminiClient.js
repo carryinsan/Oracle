@@ -5,14 +5,16 @@ import { GeminiStreamer } from './geminiStream.js';
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export class GeminiClient {
-    constructor() {
+    constructor(apiKey) {
         this.baseUrl = "/api/gemini";
     }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
-        await sleep(5500); 
+        // TPM RECOVERY BREATHER: 8.5 seconds allows the token bucket to drain safely
+        await sleep(8500); 
 
-        const payload = { promptText, systemInstruction, expectJson, stream: true };
+        const payload = { promptText, systemInstruction, expectJson, stream: false };
+
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -21,13 +23,18 @@ export class GeminiClient {
 
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         
-        const fullText = await GeminiStreamer.processSilentStream(response);
-        return expectJson ? this._parseStrictJson(fullText) : fullText;
+        const data = await response.json();
+        const output = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        
+        return expectJson ? this._parseStrictJson(output) : output;
     }
 
     async streamContent(promptText, systemInstruction = "") {
-        await sleep(5500); 
+        // TPM RECOVERY BREATHER: 8.5 seconds
+        await sleep(8500);
+
         const payload = { promptText, systemInstruction, expectJson: false, stream: true };
+
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -35,12 +42,14 @@ export class GeminiClient {
         });
 
         if (!response.ok) throw new Error(`Stream API Error: ${response.status}`);
+        
         return await GeminiStreamer.processStream(response); 
     }
 
     _parseStrictJson(rawText) {
         try {
             let cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            
             const firstBrace = cleanText.indexOf('{');
             const lastBrace = cleanText.lastIndexOf('}');
             const firstBracket = cleanText.indexOf('[');
@@ -51,8 +60,10 @@ export class GeminiClient {
             } else if (firstBracket !== -1 && lastBracket !== -1) {
                 cleanText = cleanText.substring(firstBracket, lastBracket + 1);
             }
+
             return JSON.parse(cleanText);
         } catch (error) {
+            console.error("[GeminiClient] JSON Parse Fallback Triggered. Raw Text:", rawText);
             return rawText.includes('[') ? [] : {}; 
         }
     }
