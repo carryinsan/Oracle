@@ -10,9 +10,8 @@ export class GeminiClient {
     }
 
     async generateContent(promptText, systemInstruction = "", expectJson = false) {
-        await sleep(5500); // RPM Protection
+        await sleep(5500); 
 
-        // SILENT STREAMING: Bypass Vercel 30s timeout
         const payload = { promptText, systemInstruction, expectJson, stream: true };
         const response = await fetchWithRetry(this.baseUrl, {
             method: 'POST',
@@ -22,7 +21,6 @@ export class GeminiClient {
 
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         
-        // Secretly accumulate via GeminiStreamer but suppress UI events
         const fullText = await GeminiStreamer.processSilentStream(response);
         return expectJson ? this._parseStrictJson(fullText) : fullText;
     }
