@@ -4,110 +4,143 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LexisAI | Deep Research Engine</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
     <style>
-        /* CORE CINEMATIC STYLES & ANIMATIONS */
         :root {
-            --bg-color: #050507;
-            --color-surface: rgba(15, 15, 20, 0.6);
-            --color-surface-hover: rgba(25, 25, 35, 0.8);
-            --text-primary: #f0f0f5;
-            --text-secondary: #9aa0a6;
-            --glow-accent: #3b82f6;
-            --glow-accent-secondary: #8b5cf6;
-            --border-subtle: rgba(255, 255, 255, 0.08);
-            --error-color: #ef4444;
-            --success-color: #10b981;
-            --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
-            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-            --radius-lg: 16px;
-            --radius-md: 8px;
-            --spacing-unit: 8px;
+            --bg-deep: #050508;
+            --surface-glass: rgba(15, 15, 25, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --accent-glow: #3a86ff;
+            --accent-purple: #8338ec;
+            --error-red: #ff2a2a;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --font-stack: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        html, body {
-            width: 100%; height: 100%;
-            background-color: var(--bg-color); color: var(--text-primary);
-            font-family: var(--font-primary); overflow: hidden; line-height: 1.6;
-        }
-
-        #app-root {
-            width: 100vw; height: 100vh; display: flex; flex-direction: column;
-            position: relative;
-            background: radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.15), transparent 60%);
-        }
-
-        .frosted-glass {
-            background: var(--color-surface);
-            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
-        }
-
-        .sidebar-layout { display: grid; grid-template-columns: 300px 1fr; height: 100%; gap: 24px; padding: 24px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        /* Premium Source Bars */
-        .source-bar {
-            background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle);
-            border-left: 3px solid var(--glow-accent); border-radius: var(--radius-md);
-            padding: 12px; margin-bottom: 10px; display: flex; flex-direction: column;
-            transition: all 0.3s ease; word-break: break-all;
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 0%, rgba(58, 134, 255, 0.08), transparent 60%);
         }
-        .source-bar:hover { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.4); transform: translateX(5px); }
-        .source-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; color: #fff; }
-        .source-url { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); }
-        
-        /* Buttons */
-        .action-button {
-            background: rgba(59, 130, 246, 0.1); border: 1px solid var(--glow-accent);
-            color: var(--glow-accent); padding: 8px 16px; border-radius: 20px;
-            cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.2s;
-        }
-        .action-button:hover { background: var(--glow-accent); color: #fff; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
 
-        /* Report & TOC Styles */
-        .report-layout { display: grid; grid-template-columns: 250px 1fr; gap: 30px; max-width: 1400px; margin: 0 auto; height: 100%; padding: 24px;}
-        .toc-container { position: sticky; top: 0; padding-right: 15px; border-right: 1px solid var(--border-subtle); max-height: 80vh; overflow-y: auto;}
-        .toc-item { display: block; color: var(--text-secondary); text-decoration: none; padding: 6px 0; font-size: 0.9rem; border-left: 2px solid transparent; padding-left: 10px; transition: all 0.2s;}
-        .toc-item:hover { color: var(--glow-accent); border-left-color: var(--glow-accent); }
-        .toc-item.h3 { padding-left: 20px; font-size: 0.85rem; }
-
-        input.cinematic-input {
-            width: 100%; background: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-subtle);
-            color: var(--text-primary); padding: 16px 24px; border-radius: 30px;
-            font-size: 1.1rem; outline: none; transition: all 0.3s ease; padding-right: 60px;
+        .glass-panel {
+            background: var(--surface-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
         }
-        input.cinematic-input:focus { border-color: var(--glow-accent); box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
-        .typography-h1 { font-size: 2.5rem; font-weight: 600; background: linear-gradient(135deg, #fff, #9aa0a6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        
-        .scroll-container { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-subtle) transparent; }
-        .scroll-container::-webkit-scrollbar { width: 6px; }
-        .scroll-container::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 10px; }
-        
-        @keyframes fade-in-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
-        .animate-reveal { animation: fade-in-up 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+
+        /* Anti-Silent-Failure Global Error Toast */
+        #global-error-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(20, 5, 5, 0.9);
+            border: 1px solid var(--error-red);
+            color: #fff;
+            padding: 16px 24px;
+            border-radius: 8px;
+            z-index: 9999;
+            box-shadow: 0 0 20px rgba(255, 42, 42, 0.4);
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #global-error-toast.visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 15vh auto 0;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1.glow-text {
+            font-size: 3.5rem;
+            background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+
+        .query-box {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 20px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-glass);
+            color: white;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-glow);
+            box-shadow: 0 0 15px rgba(58, 134, 255, 0.2);
+        }
+
+        button.btn-primary {
+            align-self: center;
+            padding: 16px 32px;
+            background: transparent;
+            border: 1px solid var(--accent-glow);
+            color: var(--accent-glow);
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button.btn-primary:hover {
+            background: rgba(58, 134, 255, 0.1);
+            box-shadow: 0 0 20px rgba(58, 134, 255, 0.4);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
-    <main id="app-root" class="scroll-container">
-        <section class="landing-container animate-reveal" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <h1 class="typography-h1" style="margin-bottom: 2rem;">LexisAI</h1>
-            <p style="color: var(--text-secondary); margin-bottom: 3rem; max-width: 600px; text-align: center;">
-                Enter your research objective. The system will synthesize a deeply verified, oracle-level predictive report.
-            </p>
-            <form id="query-form" style="width: 100%; max-width: 700px; position: relative;">
-                <input type="text" id="main-search-input" class="cinematic-input frosted-glass" placeholder="Initiate multi-stage predictive research..." required autocomplete="off">
-                <button type="submit" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: var(--glow-accent); display: flex; align-items: center; justify-content: center; padding: 5px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5));">
-                        <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                </button>
-            </form>
-        </section>
+    <div id="global-error-toast">
+        <strong style="color: var(--error-red);">[FATAL]</strong>
+        <span id="error-message-text">System failure.</span>
+    </div>
+
+    <main id="app-root">
+        <div class="container glass-panel">
+            <h1 class="glow-text">LexisAI</h1>
+            <p style="color: var(--text-muted); font-size: 1.2rem;">Oracle-Level Deep Research Engine</p>
+            
+            <div class="query-box">
+                <input type="text" id="research-query-input" placeholder="Initialize research directive..." autocomplete="off">
+                <button type="button" id="btn-init-research" class="btn-primary">Initialize Pipeline</button>
+            </div>
+        </div>
     </main>
-    <script type="module" src="./js/core/app.js"></script>
+
+    <script type="module" src="js/core/app.js"></script>
 </body>
 </html>
