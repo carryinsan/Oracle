@@ -1,259 +1,119 @@
-<style>
-    /* Premium Mission Control Variables */
-    :root {
-        --bg-color: #050507;
-        --color-surface: rgba(15, 15, 20, 0.7);
-        --color-surface-hover: rgba(25, 25, 35, 0.9);
-        --text-primary: #f0f0f5;
-        --text-secondary: #9aa0a6;
-        --glow-accent: #3b82f6;
-        --glow-success: #10b981;
-        --border-subtle: rgba(255, 255, 255, 0.08);
-        --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
-        --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-    }
-
-    /* Total Screen Lock & Flex Constraint (Fixes the Scroll Bug) */
-    .research-master-layout {
-        display: grid;
-        grid-template-columns: 320px 1fr;
-        height: 100vh; /* Locks to exact screen height */
-        width: 100vw;
-        gap: 24px;
-        padding: 24px;
-        background: radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.1), transparent 60%), var(--bg-color);
-        box-sizing: border-box;
-        overflow: hidden; /* Prevents whole-page scrolling */
-    }
-
-    /* Premium Glassmorphism */
-    .glass-panel {
-        background: var(--color-surface);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid var(--border-subtle);
-        border-radius: 16px;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-
-    /* Custom Sleek Scrollbars */
-    .scroll-container {
-        overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: var(--glow-accent) transparent;
-    }
-    .scroll-container::-webkit-scrollbar { width: 6px; }
-    .scroll-container::-webkit-scrollbar-track { background: transparent; }
-    .scroll-container::-webkit-scrollbar-thumb { 
-        background: rgba(59, 130, 246, 0.3); 
-        border-radius: 10px; 
-    }
-    .scroll-container::-webkit-scrollbar-thumb:hover { background: var(--glow-accent); }
-
-    /* Timeline Sidebar */
-    .timeline-header {
-        padding: 1.5rem;
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        border-bottom: 1px solid var(--border-subtle);
-        background: rgba(0,0,0,0.2);
-    }
-    #timeline-container { padding: 1.5rem; }
-
-    /* Mission Control Header */
-    .feed-header {
-        padding: 1.5rem;
-        border-bottom: 1px solid var(--border-subtle);
-        background: linear-gradient(180deg, rgba(25,25,35,0.8) 0%, rgba(15,15,20,0.8) 100%);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        z-index: 10;
-    }
-
-    .task-display-wrapper {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    /* The 'Active Pulse' Indicator */
-    .status-pulse {
-        width: 10px;
-        height: 10px;
-        background-color: var(--glow-success);
-        border-radius: 50%;
-        box-shadow: 0 0 10px var(--glow-success);
-        animation: pulse-animation 1.5s infinite;
-    }
-
-    @keyframes pulse-animation {
-        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-    }
-
-    #current-task-display {
-        font-family: var(--font-primary);
-        font-weight: 600;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-        margin: 0;
-    }
-
-    /* Tactical Pill Button */
-    .btn-sources {
-        background: rgba(59, 130, 246, 0.15);
-        border: 1px solid rgba(59, 130, 246, 0.4);
-        color: #fff;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-family: var(--font-primary);
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
-    }
-    .btn-sources:hover {
-        background: var(--glow-accent);
-        box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
-        transform: translateY(-1px);
-    }
-
-    /* The Live Terminal Logs */
-    #live-log-container {
-        flex: 1; /* This is the magic fix that forces it to take remaining height */
-        padding: 1.5rem;
-        font-family: var(--font-mono); /* Hacker/Terminal look */
-        font-size: 0.9rem;
-        line-height: 1.7;
-        color: var(--text-secondary);
-        background: rgba(0, 0, 0, 0.2);
-    }
-
-    /* Live Sources Sliding Panel */
-    #live-sources-panel {
-        position: absolute;
-        top: 76px; /* Sits exactly under the header */
-        right: 0;
-        width: 100%;
-        max-height: 60vh;
-        background: rgba(10, 10, 15, 0.95);
-        border-bottom: 1px solid var(--glow-accent);
-        backdrop-filter: blur(25px);
-        -webkit-backdrop-filter: blur(25px);
-        z-index: 20;
-        padding: 1.5rem;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.8);
-    }
-
-    /* Fade-in Animation */
-    @keyframes fadeInUp {
-        0% { opacity: 0; transform: translateY(15px); }
-        100% { opacity: 1; transform: translateY(0); }
-    }
-    .animate-reveal { animation: fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-
-    /* Mobile Responsiveness */
-    @media (max-width: 768px) {
-        .research-master-layout {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto 1fr;
-            padding: 10px;
-            gap: 10px;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexisAI | Active Pipeline</title>
+    <style>
+        /* Inherit core CSS variables from index logic */
+        :root {
+            --bg-deep: #050508;
+            --surface-glass: rgba(15, 15, 25, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --accent-glow: #3a86ff;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --font-stack: 'Inter', system-ui, sans-serif;
         }
-        #timeline-panel { display: none; /* Hide timeline on phones to maximize space */ }
-    }
-
-    /* Premium Visual Source Cards */
-    .source-bar-link {
-        display: block;
-        text-decoration: none;
-        margin-bottom: 12px;
-    }
-    .source-bar-premium {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--border-subtle);
-        border-left: 3px solid var(--glow-accent);
-        border-radius: 12px;
-        padding: 12px 16px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-        word-break: break-all;
-    }
-    .source-bar-premium:hover {
-        background: rgba(59, 130, 246, 0.15);
-        border-color: rgba(59, 130, 246, 0.5);
-        transform: translateX(6px);
-        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
-    }
-    .source-logo {
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        object-fit: contain;
-        background: rgba(255, 255, 255, 0.9); /* Makes transparent PNG logos pop */
-        padding: 4px;
-        flex-shrink: 0;
-    }
-    .source-info {
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-    .source-title {
-        font-family: var(--font-primary);
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: #ffffff;
-        margin-bottom: 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .source-url {
-        font-family: var(--font-mono);
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-</style>
-
-<div class="research-master-layout animate-reveal" id="research-view">
-    
-    <aside id="timeline-panel" class="glass-panel">
-        <div class="timeline-header">Execution Pipeline</div>
-        <div id="timeline-container" class="scroll-container">
-            </div>
-    </aside>
-
-    <section id="research-feed" class="glass-panel" style="position: relative;">
+        body { background-color: var(--bg-deep); color: var(--text-main); font-family: var(--font-stack); margin: 0; }
         
-        <div class="feed-header">
-            <div class="task-display-wrapper">
-                <div class="status-pulse"></div>
-                <h2 id="current-task-display">Initializing DAG Orchestration...</h2>
-            </div>
-            <button id="toggle-live-sources-btn" class="btn-sources">Researching 0 Sources ▼</button>
-        </div>
+        #global-error-toast { /* Same as index.html */ display:none; }
 
-        <div id="live-sources-panel" class="scroll-container" style="display: none;">
-            <div id="live-sources-list">
+        .research-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .timeline-sidebar {
+            background: rgba(10, 10, 15, 0.8);
+            border-right: 1px solid var(--border-glass);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .execution-main {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            height: 100%;
+            overflow-y: auto; /* Strict boundary fix */
+        }
+
+        .glass-panel {
+            background: var(--surface-glass);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--accent-glow);
+            box-shadow: 0 0 10px var(--accent-glow);
+            transition: width 0.4s ease;
+        }
+
+        #live-feed-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.5);
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid var(--border-glass);
+        }
+    </style>
+</head>
+<body>
+    <div id="global-error-toast" class="hidden"></div>
+
+    <main id="app-root">
+        <div class="research-layout">
+            <aside class="timeline-sidebar">
+                <h3 style="color: var(--accent-glow); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px;">DAG Trajectory</h3>
+                <div id="timeline-nodes">
+                    </div>
+            </aside>
+
+            <section class="execution-main">
+                <header>
+                    <h2 style="font-weight: 400;">Executing 40-Pass Research...</h2>
+                </header>
+                
+                <div class="glass-panel">
+                    <div class="progress-container">
+                        <div id="master-progress-bar" class="progress-bar"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                        <span id="status-label">Phase 1: Ingestion</span>
+                        <span id="pass-counter">Pass 1/40</span>
+                    </div>
                 </div>
-        </div>
 
-        <article id="live-log-container" class="scroll-container">
-            </article>
-        
-    </section>
-</div>
+                <div id="live-feed-container">
+                    </div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="js/core/app.js"></script>
+</body>
+</html>
