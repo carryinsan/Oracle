@@ -5,62 +5,122 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LexisAI | Active Pipeline</title>
     <style>
-        /* Inherit core CSS variables from index logic */
         :root {
-            --bg-deep: #050508;
-            --surface-glass: rgba(15, 15, 25, 0.65);
-            --border-glass: rgba(255, 255, 255, 0.08);
+            --bg-deep: #030305;
+            --sidebar-bg: #07070b;
+            --border-glass: rgba(255, 255, 255, 0.06);
             --accent-glow: #3a86ff;
+            --accent-green: #00f5d4;
             --text-main: #e2e8f0;
-            --text-muted: #94a3b8;
+            --text-muted: #64748b;
             --font-stack: 'Inter', system-ui, sans-serif;
+            --font-mono: 'Fira Code', 'Courier New', Courier, monospace;
         }
-        body { background-color: var(--bg-deep); color: var(--text-main); font-family: var(--font-stack); margin: 0; }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        #global-error-toast { /* Same as index.html */ display:none; }
+        body { 
+            background-color: var(--bg-deep); 
+            color: var(--text-main); 
+            font-family: var(--font-stack); 
+            overflow: hidden; /* Lock body scrolling */
+        }
+        
+        #global-error-toast { display:none; }
 
         .research-layout {
             display: grid;
-            grid-template-columns: 300px 1fr;
+            grid-template-columns: 280px 1fr;
             height: 100vh;
-            overflow: hidden;
+            width: 100vw;
         }
 
+        /* --- LEFT SIDEBAR (DAG TIMELINE) --- */
         .timeline-sidebar {
-            background: rgba(10, 10, 15, 0.8);
+            background: var(--sidebar-bg);
             border-right: 1px solid var(--border-glass);
-            padding: 24px;
+            padding: 30px 20px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            overflow-y: auto;
+            scrollbar-width: none; /* Hide scrollbar for clean look */
+        }
+        .timeline-sidebar::-webkit-scrollbar { display: none; }
+
+        .sidebar-title {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 25px;
+            font-weight: 600;
+            padding-left: 10px;
         }
 
+        /* The continuous vertical line connecting timeline nodes */
+        #timeline-nodes {
+            position: relative;
+            padding-left: 5px;
+        }
+        #timeline-nodes::before {
+            content: '';
+            position: absolute;
+            left: 11px; /* Centers behind the 12px JS-injected dots */
+            top: 10px;
+            bottom: 10px;
+            width: 1px;
+            background: var(--border-glass);
+            z-index: 0;
+        }
+
+        /* Ensure JS-injected dots sit above the line */
+        #timeline-nodes > div {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* --- RIGHT MAIN AREA (TERMINAL & EXECUTION) --- */
         .execution-main {
-            padding: 40px;
+            padding: 35px 45px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            height: 100%;
-            overflow-y: auto; /* Strict boundary fix */
+            height: 100vh;
+            position: relative;
+            background: radial-gradient(circle at 50% 0%, rgba(58, 134, 255, 0.03), transparent 70%);
         }
 
-        .glass-panel {
-            background: var(--surface-glass);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-glass);
-            border-radius: 12px;
-            padding: 20px;
-        }
-
-        .progress-container {
-            width: 100%;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-            overflow: hidden;
+        .execution-header {
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 20px;
             margin-bottom: 20px;
         }
-        
+
+        #status-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        #pass-counter {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+            font-family: var(--font-mono);
+        }
+
+        /* Progress Bar minimized to a sleek top-edge line to match screenshot aesthetic */
+        .progress-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: transparent;
+            z-index: 10;
+        }
         .progress-bar {
             height: 100%;
             width: 0%;
@@ -69,16 +129,53 @@
             transition: width 0.4s ease;
         }
 
+        /* --- LIVE TERMINAL FEED --- */
         #live-feed-container {
             flex-grow: 1;
             overflow-y: auto;
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            background: rgba(0,0,0,0.5);
-            border-radius: 8px;
-            padding: 16px;
-            border: 1px solid var(--border-glass);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.7;
+            color: #8b949e; /* Faded terminal text */
+            padding-right: 15px;
+            padding-bottom: 40px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+
+        #live-feed-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        #live-feed-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+
+        /* CSS Overrides to style the JS-injected terminal logs */
+        #live-feed-container div {
+            margin-bottom: 6px !important;
+        }
+        #live-feed-container span {
+            color: var(--accent-glow) !important; /* Forces [SYSTEM] / [TIME] tags to be blue */
+            margin-right: 8px;
+            font-weight: 500;
+        }
+
+        /* --- FORCE OVERRIDE FOR SOURCE EXPLORER BUTTON --- 
+           Forces the JS-injected button to match the pill-shape in your screenshot */
+        #source-explorer-btn {
+            top: 30px !important;
+            right: 45px !important;
+            background: rgba(10, 15, 30, 0.7) !important;
+            border: 1px solid rgba(58, 134, 255, 0.3) !important;
+            border-radius: 20px !important; /* Pill shape */
+            font-size: 0.85rem !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4) !important;
+            transition: all 0.2s ease !important;
+        }
+        #source-explorer-btn:hover {
+            background: rgba(58, 134, 255, 0.15) !important;
+            border-color: var(--accent-glow) !important;
         }
     </style>
 </head>
@@ -87,30 +184,28 @@
 
     <main id="app-root">
         <div class="research-layout">
+            
             <aside class="timeline-sidebar">
-                <h3 style="color: var(--accent-glow); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px;">DAG Trajectory</h3>
+                <div class="sidebar-title">Execution Pipeline</div>
                 <div id="timeline-nodes">
                     </div>
             </aside>
 
             <section class="execution-main">
-                <header>
-                    <h2 style="font-weight: 400;">Executing 40-Pass Research...</h2>
-                </header>
                 
-                <div class="glass-panel">
-                    <div class="progress-container">
-                        <div id="master-progress-bar" class="progress-bar"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
-                        <span id="status-label">Phase 1: Ingestion</span>
-                        <span id="pass-counter">Pass 1/40</span>
-                    </div>
+                <div class="progress-container">
+                    <div id="master-progress-bar" class="progress-bar"></div>
                 </div>
+
+                <header class="execution-header">
+                    <h2 id="status-label">Initializing DAG Orchestration...</h2>
+                    <span id="pass-counter">(Pass 0/40)</span>
+                </header>
 
                 <div id="live-feed-container">
                     </div>
-            </section>
+
+                </section>
         </div>
     </main>
 
