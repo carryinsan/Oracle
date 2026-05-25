@@ -1,37 +1,89 @@
-<div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
-    
-    <header class="frosted-glass" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; margin: 15px 30px 0 30px;">
-        <button id="btn-back-home" class="action-button" style="background: transparent; color: var(--text-primary); border-color: var(--border-subtle);">← Back to Home</button>
-        <div style="display: flex; gap: 15px;">
-            <button id="btn-view-final-sources" class="action-button" style="background: transparent; border-color: var(--glow-accent-secondary); color: var(--glow-accent-secondary);">View All Extracted Sources</button>
-            <button id="btn-download-pdf" class="action-button">Download as PDF</button>
-        </div>
-    </header>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexisAI | Synthesis Report</title>
+    <style>
+        :root {
+            --bg-deep: #050508;
+            --surface-glass: rgba(15, 15, 25, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --accent-glow: #3a86ff;
+            --text-main: #e2e8f0;
+            --font-stack: 'Inter', system-ui, sans-serif;
+        }
+        body { background-color: var(--bg-deep); color: var(--text-main); font-family: var(--font-stack); margin: 0; line-height: 1.6; }
+        
+        .report-container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 40px;
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
 
-    <div class="report-layout animate-reveal scroll-container">
-        <aside class="toc-container scroll-container">
-            <h3 style="font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">Table of Contents</h3>
-            <nav id="dynamic-toc">
-                </nav>
-        </aside>
+        .report-header {
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
 
-        <main id="pdf-export-area" class="frosted-glass scroll-container" style="padding: 3rem; background: var(--bg-color);">
-            <h1 id="report-title" class="typography-h1" style="margin-bottom: 1rem;">Synthesized Predictive Output</h1>
-            <div style="display: flex; gap: 1rem; margin-bottom: 3rem; color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.85rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1rem;">
-                <span id="meta-confidence">System Confidence: 99.8%</span>
-                <span id="meta-sources-final">Sources Verified: Calculating...</span>
-            </div>
+        .report-content h1, .report-content h2, .report-content h3 {
+            color: #fff;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .report-content p {
+            margin-bottom: 16px;
+            color: #cbd5e1;
+        }
+
+        /* Inline Citation styling */
+        .citation-tag {
+            color: var(--accent-glow);
+            font-size: 0.8em;
+            vertical-align: super;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-export {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 12px 24px;
+            background: var(--accent-glow);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(58, 134, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <main id="app-root">
+        <article class="report-container">
+            <header class="report-header">
+                <h1 id="report-title">Synthesizing...</h1>
+                <p style="color: #64748b; font-size: 0.9rem;" id="report-meta">LexisAI Multi-Agent Synthesis</p>
+            </header>
             
-            <div id="report-content-container" style="font-size: 1.1rem; line-height: 1.8;">
+            <div id="report-content" class="report-content">
                 </div>
-        </main>
-    </div>
+            
+            <div id="bibliography-section" style="margin-top: 50px; border-top: 1px solid var(--border-glass); padding-top: 20px;">
+                </div>
+        </article>
 
-    <div id="final-sources-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; padding: 2rem;">
-        <div class="frosted-glass scroll-container" style="width: 100%; max-width: 800px; max-height: 80vh; padding: 2rem; position: relative;">
-            <button id="close-sources-modal" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">×</button>
-            <h2 style="margin-bottom: 1.5rem; color: var(--glow-accent);">Verified Source Repository</h2>
-            <div id="final-sources-list"></div>
-        </div>
-    </div>
-</div>
+        <button class="btn-export" onclick="window.location.hash='#/export'">Export to PDF</button>
+    </main>
+    <script type="module" src="js/core/app.js"></script>
+</body>
+</html>
