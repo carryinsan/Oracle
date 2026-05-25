@@ -5,12 +5,14 @@
 import { groqClient } from '../api/groqClient.js';
 import { state } from './researchState.js';
 import { eventBus } from '../core/eventBus.js';
-import * as Prompts from '../prompts/systemPrompts.js';
 
 export class QueryGenerator {
     static async generateBranch(branchName, systemPrompt, userIntent) {
         try {
-            eventBus.emit('TERMINAL_LOG', { message: `[COG_ENGINE] Formulating search matrix for ${branchName}...` });
+            let branchLabel = branchName === 'A' ? 'Ontology' : branchName === 'B' ? 'Contrarian' : branchName === 'C' ? 'Temporal' : branchName === 'D' ? 'Gap-Fill' : 'Contradiction Resolution';
+            
+            // EXACT SCREENSHOT TEXT
+            eventBus.emit('TERMINAL_LOG', { message: `> Generating ${branchLabel} Branch...` });
             
             const messages = [
                 { role: "system", content: systemPrompt },
@@ -19,18 +21,13 @@ export class QueryGenerator {
 
             const queries = await groqClient.generateJSON(messages);
             
-            // Built-In Error Solving: Array Validation
             if (!Array.isArray(queries)) {
-                throw new Error("Llama-4-Scout returned non-array payload.");
+                throw new Error("Model returned non-array payload.");
             }
-            
-            return queries.slice(0, 3); // Strictly enforce 3 queries per branch (3x5 branches = 15 Tavily passes)
+            return queries.slice(0, 3);
             
         } catch (error) {
-            console.error(`[QueryGenerator] Branch ${branchName} failed:`, error);
-            eventBus.emit('TERMINAL_LOG', { message: `[WARN] Branch ${branchName} degraded. Applying fallback heuristics.` });
-            
-            // Failsafe: Return a safe, generic query based on intent so search doesn't stall
+            eventBus.emit('TERMINAL_LOG', { message: `> [WARN] Branch ${branchName} degraded. Applying fallback heuristics.` });
             return [`${state.query} analysis`, `${state.query} details`];
         }
     }
