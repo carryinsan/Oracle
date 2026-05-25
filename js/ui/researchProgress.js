@@ -25,12 +25,13 @@ export class ResearchProgress {
         try {
             this.bar.style.width = `${payload.percentage}%`;
             
-            // EXACT SCREENSHOT HEADER FORMATTING: "Executing PHASE X: NAME (Pass Y)"
-            this.label.innerText = `Executing ${payload.action} (Pass ${payload.pass})`;
+            // Format strictly to match the two-line layout in the screenshot
+            this.label.innerText = `Executing ${payload.action}`;
             
-            // Hide the old secondary counter since it's merged into the main H2 string now
+            // Re-enable and update the secondary counter line
             if (this.counter) {
-                this.counter.style.display = 'none';
+                this.counter.style.display = 'block';
+                this.counter.innerText = `(Pass ${payload.pass})`;
             }
 
             if (payload.percentage > 95) {
