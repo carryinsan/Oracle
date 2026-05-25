@@ -20,16 +20,21 @@ export class ResearchProgress {
     }
 
     updateUI(payload) {
-        if (!this.bar || !this.label || !this.counter) return;
+        if (!this.bar || !this.label) return;
 
         try {
             this.bar.style.width = `${payload.percentage}%`;
-            this.label.innerText = payload.action;
-            this.counter.innerText = `Pass ${payload.pass}/${payload.total}`;
             
-            // Visual glow effect on heavy processing
+            // EXACT SCREENSHOT HEADER FORMATTING: "Executing PHASE X: NAME (Pass Y)"
+            this.label.innerText = `Executing ${payload.action} (Pass ${payload.pass})`;
+            
+            // Hide the old secondary counter since it's merged into the main H2 string now
+            if (this.counter) {
+                this.counter.style.display = 'none';
+            }
+
             if (payload.percentage > 95) {
-                this.bar.style.boxShadow = '0 0 20px #8338ec, 0 0 40px var(--accent-glow)';
+                this.bar.style.boxShadow = '0 0 20px var(--accent-green), 0 0 40px var(--accent-glow)';
             }
         } catch (e) {
             console.error("[UI_ERROR] Progress Bar Render Failure", e);
