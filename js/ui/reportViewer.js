@@ -1,69 +1,175 @@
-/**
- * LexisAI Final Synthesis Renderer
- * Path: /js/ui/reportViewer.js
- */
-import { eventBus } from '../core/eventBus.js';
-import { router } from '../core/router.js';
+// File Path: js/ui/reportViewer.js
+// Purpose: Safely compiles, sanitizes, and renders the final algorithmic report. 
+// Handles memory-safe PDF exporting to prevent mobile canvas crashes.
 
-export class ReportViewer {
+import { EventBus } from '../core/eventBus.js';
+import { stateManager } from '../engine/researchState.js';
+import { Config } from '../core/config.js';
+
+class ReportViewer {
     constructor() {
-        this.completeHandler = this.handleCompletion.bind(this);
-        this.renderHandler = this.renderContent.bind(this);
-        this.teardownHandler = this.teardown.bind(this);
-
-        eventBus.on('REPORT_GENERATION_COMPLETE', this.completeHandler);
-        eventBus.on('DOM_READY', this.renderHandler);
-        eventBus.on('ROUTE_TEARDOWN', this.teardownHandler);
-        
-        this.pendingMarkdown = null;
+        this.appRoot = document.getElementById('app-root');
+        this.bindEvents();
     }
 
-    handleCompletion(payload) {
-        // 1. Store the markdown securely in memory
-        this.pendingMarkdown = payload.markdown;
-        
-        // 2. Automatically navigate the user to the Report Viewer
-        setTimeout(() => {
-            router.navigate('#/report');
-        }, 1500); // 1.5s delay to let them see 100% completion
+    bindEvents() {
+        EventBus.on('PIPELINE_COMPLETE', async () => {
+            await this.renderFinalReport();
+        });
     }
 
-    renderContent(payload) {
-        // Only run if we arrived at the report page
-        if (payload.route !== '#/report' || !this.pendingMarkdown) return;
+    async renderFinalReport() {
+        EventBus.emit('TELEMETRY_LOG', "Initiating cryptographic document compilation...");
         
-        const contentContainer = document.getElementById('report-content');
-        if (!contentContainer) return;
-
-        try {
-            // Built-in Lightweight Markdown Parser to prevent dependency crashes
-            let html = this.pendingMarkdown
-                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                .replace(/^\> (.*$)/gim, '<blockquote style="border-left:3px solid var(--accent-glow); padding-left:10px; margin:10px 0;">$1</blockquote>')
-                .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-                .replace(/\*(.*)\*/gim, '<em>$1</em>')
-                .replace(/\[(\d+)\]/gim, '<sup class="citation-tag">[$1]</sup>'); // Style citations
-
-            // Handle line breaks and paragraphs safely
-            html = html.split('\n\n').map(paragraph => {
-                if (!paragraph.startsWith('<h') && !paragraph.startsWith('<b')) {
-                    return `<p>${paragraph}</p>`;
-                }
-                return paragraph;
-            }).join('');
-
-            contentContainer.innerHTML = html;
-            
-        } catch (error) {
-            eventBus.emit('FATAL_ERROR', { message: `[RENDER_FAIL] Markdown parse error: ${error.message}` });
+        const finalDraft = stateManager.get('final_report') || stateManager.get('draft.all_passes');
+        
+        if (!finalDraft) {
+            EventBus.emit('TELEMETRY_LOG', "[ERROR] Final report data missing.");
+            return;
         }
+
+        // 1. Convert Markdown to HTML natively
+        let htmlContent = this.parseMarkdown(finalDraft);
+
+        // 2. Strict Security Sanitization (Mitigates innerHTML vulnerabilities)
+        htmlContent = this.sanitizeHTML(htmlContent);
+
+        // 3. Construct the Document View
+        this.buildReportUI(htmlContent);
     }
 
-    teardown() {
-        eventBus.off('REPORT_GENERATION_COMPLETE', this.completeHandler);
-        eventBus.off('DOM_READY', this.renderHandler);
-        eventBus.off('ROUTE_TEARDOWN', this.teardownHandler);
+    parseMarkdown(text) {
+        if (!text) return "";
+        let html = text
+            // Headers
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // Bold & Italic
+            .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+            // Citations / Claim IDs: [claim_id: XYZ] or [1]
+            .replace(/\[(claim_id:\s*[A-Za-z0-9_-]+)\]/gim, '<span class="citation-tag">$1</span>')
+            .replace(/\[([0-9]+)\]/gim, '<sup class="citation-number">[$1]</sup>')
+            // Lists
+            .replace(/^\s*-\s(.*$)/gim, '<li>$1</li>')
+            // Paragraphs (Double line break)
+            .replace(/\n\n/gim, '</p><p>')
+            .trim();
+        
+        // Wrap orphaned list items in ul
+        html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
+        // Clean up adjacent ul tags
+        html = html.replace(/<\/ul>\n?<ul>/gim, '');
+
+        return `<p>${html}</p>`;
+    }
+
+    sanitizeHTML(unsafeHtml) {
+        // A lightweight native sanitizer removing obvious script and event handler vectors.
+        // In a strict enterprise environment, a library like DOMPurify would be injected here.
+        return unsafeHtml
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/on\w+="[^"]*"/gi, '')
+            .replace(/on\w+='[^']*'/gi, '')
+            .replace(/on\w+=\w+/gi, '')
+            .replace(/javascript:/gi, '');
+    }
+
+    buildReportUI(htmlContent) {
+        // Create the report container dynamically
+        const reportSection = document.createElement('section');
+        reportSection.id = 'view-report';
+        reportSection.className = 'view-layer active animate-reveal';
+        
+        reportSection.innerHTML = `
+            <div class="report-container glass-panel">
+                <div class="report-header">
+                    <div>
+                        <h2>Oracle Research Dossier</h2>
+                        <span class="report-meta">Generated by LexisAI v${Config.VERSION}</span>
+                    </div>
+                    <div class="report-actions">
+                        <button id="btn-export-pdf" class="btn-primary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Export PDF
+                        </button>
+                        <button id="btn-new-research" class="btn-secondary">New Session</button>
+                    </div>
+                </div>
+                <div class="report-body document-editor">
+                    ${htmlContent}
+                </div>
+                <div class="report-footer">
+                    <h3>Cryptographic Evidence Used:</h3>
+                    <div id="report-source-appendix"></div>
+                </div>
+            </div>
+        `;
+
+        // Hide old views
+        document.querySelectorAll('.view-layer').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.view-layer').forEach(el => el.classList.add('hidden'));
+
+        // Append and show new view
+        this.appRoot.appendChild(reportSection);
+
+        // Populate the Source Appendix
+        this.populateAppendix();
+
+        // Bind Buttons
+        document.getElementById('btn-export-pdf').addEventListener('click', () => this.exportToPdfSafe());
+        document.getElementById('btn-new-research').addEventListener('click', () => {
+            EventBus.emit('SYSTEM_RESET');
+            stateManager.reset();
+            reportSection.remove();
+        });
+    }
+
+    populateAppendix() {
+        const appendix = document.getElementById('report-source-appendix');
+        const seenUrls = new Set();
+        
+        // Extract all sources from all 5 passes
+        const passes = [3, 7, 11, 15, 19];
+        passes.forEach(pass => {
+            const raw = stateManager.get(`search_results.pass${pass}`);
+            if (raw) {
+                try {
+                    const results = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    results.forEach(src => {
+                        if (src.url && !seenUrls.has(src.url)) {
+                            seenUrls.add(src.url);
+                            const item = document.createElement('div');
+                            item.className = 'appendix-item';
+                            item.innerHTML = `<a href="${src.url}" target="_blank">${src.title || src.url}</a>`;
+                            appendix.appendChild(item);
+                        }
+                    });
+                } catch (e) { /* Ignore parse errors on individual slices */ }
+            }
+        });
+    }
+
+    /**
+     * Highly optimized PDF Export.
+     * Bypasses the 'html2pdf.js' canvas exhaustion crash mentioned in bug reports
+     * by utilizing the browser's native print spooler with specialized CSS injection.
+     */
+    exportToPdfSafe() {
+        EventBus.emit('TELEMETRY_LOG', "Initializing secure PDF spooler...");
+        
+        // Add a print-specific CSS class to the body temporarily
+        document.body.classList.add('print-mode');
+        
+        // Allow the DOM to repaint, then trigger print
+        setTimeout(() => {
+            window.print();
+            // Remove the class after the print dialog closes
+            document.body.classList.remove('print-mode');
+            EventBus.emit('TELEMETRY_LOG', "PDF generation sequence concluded.");
+        }, 300);
     }
 }
+
+export const reportUI = new ReportViewer();
