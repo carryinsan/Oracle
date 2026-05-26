@@ -1,86 +1,84 @@
-/**
- * LexisAI Global State Manager & Desync Preventer
- * Path: /js/engine/researchState.js
- */
-import { eventBus } from '../core/eventBus.js';
+// File Path: js/engine/researchState.js
+// Purpose: Centralized state management for the 25-pass Oracle pipeline.
+// Syncs continuously with StorageManager and broadcasts updates via EventBus.
+
+import { EventBus } from '../core/eventBus.js';
+import { storage } from './storageManager.js';
 
 class ResearchState {
     constructor() {
-        this.resetState();
+        this.reset();
     }
 
-    resetState() {
-        // PREVENTS STATE DESYNC: Brutally zero out all memory from previous sessions
-        this.query = "";
-        this.trajectory = "Initializing deep parallel extraction.";
-        
-        // Parallel Branching Queries
-        this.queries = {
-            branch_A: [], // Core Ontology
-            branch_B: [], // Contrarian & Edge-Case
-            branch_C: [], // Temporal & Statistical
-            branch_D: [], // Gap-Fill
-            branch_E: []  // Contradiction Deepening
+    /**
+     * Initializes or resets the global state.
+     */
+    reset() {
+        this.data = {
+            query: "",
+            status: "idle",
+            currentPass: 0,
+            trajectory: {},
+            ontology: {},
+            plan: { outline: [] },
+            STYLE_GUIDE: "",
+            queries: { pass3: [], pass7: [], pass11: [], pass15: [], pass19: [] },
+            memory_index: {
+                slice1: [], slice2: [], slice3: [], slice4: [], slice5: []
+            },
+            contradictions: [],
+            visualization_candidates: [],
+            draft: {
+                pass5: "", pass6: "", pass9: "", pass10: "", pass13: "",
+                pass14: "", pass17: "", pass18: "", pass21: "", pass22: "",
+                all_passes: ""
+            },
+            audit: { errors: "", ocp_codes: "" },
+            final_replacements: {},
+            failures: [],
+            logs: []
         };
-
-        // Source Memory
-        this.rawSources = [];
-        this.compressed_corpus = "";
-        this.verified_corpus = "";
-        this.Compiled_Knowledge_Base = "";
-        
-        // Epistemological Anchors
-        this.anchored_claims = []; // { claim_id, weight, source_url, text }
-        this.contradictions = [];  // Immutable CONTRADICTION_OBJECTS
-        
-        // The Cognitive Core
-        this.memory_index = {}; 
-        this.visualization_candidates = [];
-        this.STYLE_GUIDE = null;
-        
-        // Generation Drafts
-        this.sections = {
-            outline: "",
-            outline_optimized: "",
-            introduction: "",
-            core_mechanics: "",
-            deep_dive_a: "",
-            deep_dive_b: "",
-            data_metrics: "",
-            nuance_and_temporal: "",
-            conclusion: ""
-        };
-        
-        this.draft = {
-            resolved_citations: "",
-            smoothed_and_compressed: ""
-        };
-        
-        this.integrity_audit = "";
-        this.snapshots = {};
-        this.failures = [];
-
-        this.token_budget = {
-            total_allocated: 1000000,
-            remaining: 1000000
-        };
-
-        console.log("[MEMORY] State brutally zeroed. Ready for new directive.");
     }
 
-    updateField(path, value) {
-        const keys = path.split('.');
-        let current = this;
-        while (keys.length > 1) {
-            if (current[keys[0]] === undefined) current[keys[0]] = {};
-            current = current[keys.shift()];
+    /**
+     * Loads state from IndexedDB. If none exists, starts fresh.
+     */
+    async initialize() {
+        const savedState = await storage.loadState();
+        if (savedState) {
+            this.data = savedState;
+            console.log("[ResearchState] Recovered state from memory.");
+            EventBus.emit('STATE_RECOVERED', this.data);
         }
-        current[keys[0]] = value;
     }
 
-    getSnapshot() {
-        return JSON.parse(JSON.stringify(this)); // Deep clone
+    /**
+     * Deep updates the state, saves to IndexedDB, and emits telemetry.
+     * @param {string} path - Object path (e.g., 'draft.pass5')
+     * @param {any} value - The data to inject
+     */
+    async update(path, value) {
+        const keys = path.split('.');
+        let current = this.data;
+
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (!current[keys[i]]) current[keys[i]] = {};
+            current = current[keys[i]];
+        }
+        
+        current[keys[keys.length - 1]] = value;
+        
+        // Log telemetry
+        this.data.logs.push(`[Pass ${this.data.currentPass}] Updated ${path}`);
+        
+        // Persist and Notify
+        await storage.saveState(this.data);
+        EventBus.emit('STATE_UPDATED', { path, value, pass: this.data.currentPass });
+    }
+
+    get(path) {
+        return path.split('.').reduce((acc, part) => acc && acc[part], this.data);
     }
 }
 
-export const state = new ResearchState();
+export const stateManager = new ResearchState();
