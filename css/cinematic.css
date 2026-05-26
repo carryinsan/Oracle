@@ -203,3 +203,55 @@ button {
     height: calc(100% - 40px);
     padding-right: 10px;
 }
+/* --- NATIVE PDF EXPORT OPTIMIZATION --- */
+/* Resolves mobile canvas crashing by offloading to the native print spooler */
+@media print {
+    body.print-mode {
+        background: white !important;
+        color: black !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* Hide the UI elements we don't want in the PDF */
+    header.glass-header,
+    #ambient-background,
+    #grid-overlay,
+    .timeline-panel,
+    .telemetry-panel,
+    .source-panel,
+    .report-actions {
+        display: none !important;
+    }
+
+    /* Format the report container for standard A4/Letter paper */
+    .report-container {
+        border: none !important;
+        box-shadow: none !important;
+        background: white !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .report-body h1, .report-body h2 {
+        color: #111 !important;
+        page-break-after: avoid;
+    }
+
+    .report-body p {
+        color: #333 !important;
+        line-height: 1.5;
+        page-break-inside: avoid;
+    }
+
+    .citation-tag {
+        color: #2563eb !important;
+        border: 1px solid #2563eb !important;
+    }
+
+    a {
+        text-decoration: underline !important;
+        color: #2563eb !important;
+    }
+}
+
