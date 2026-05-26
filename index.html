@@ -2,143 +2,84 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LexisAI | Deep Research Engine</title>
-    <style>
-        :root {
-            --bg-deep: #050508;
-            --surface-glass: rgba(15, 15, 25, 0.65);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --accent-glow: #3a86ff;
-            --accent-purple: #8338ec;
-            --error-red: #ff2a2a;
-            --text-main: #e2e8f0;
-            --text-muted: #94a3b8;
-            --font-stack: 'Inter', system-ui, -apple-system, sans-serif;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            background-color: var(--bg-deep);
-            color: var(--text-main);
-            font-family: var(--font-stack);
-            min-height: 100vh;
-            overflow-x: hidden;
-            background-image: radial-gradient(circle at 50% 0%, rgba(58, 134, 255, 0.08), transparent 60%);
-        }
-
-        .glass-panel {
-            background: var(--surface-glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-glass);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-        }
-
-        /* Anti-Silent-Failure Global Error Toast */
-        #global-error-toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-100px);
-            background: rgba(20, 5, 5, 0.9);
-            border: 1px solid var(--error-red);
-            color: #fff;
-            padding: 16px 24px;
-            border-radius: 8px;
-            z-index: 9999;
-            box-shadow: 0 0 20px rgba(255, 42, 42, 0.4);
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            opacity: 0;
-            pointer-events: none;
-        }
-        #global-error-toast.visible {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 15vh auto 0;
-            padding: 40px;
-            text-align: center;
-        }
-
-        h1.glow-text {
-            font-size: 3.5rem;
-            background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 10px;
-            letter-spacing: -1px;
-        }
-
-        .query-box {
-            margin-top: 40px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 20px;
-            background: rgba(0,0,0,0.4);
-            border: 1px solid var(--border-glass);
-            color: white;
-            font-size: 1.1rem;
-            border-radius: 8px;
-            outline: none;
-            transition: border-color 0.3s ease;
-        }
-
-        input[type="text"]:focus {
-            border-color: var(--accent-glow);
-            box-shadow: 0 0 15px rgba(58, 134, 255, 0.2);
-        }
-
-        button.btn-primary {
-            align-self: center;
-            padding: 16px 32px;
-            background: transparent;
-            border: 1px solid var(--accent-glow);
-            color: var(--accent-glow);
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        button.btn-primary:hover {
-            background: rgba(58, 134, 255, 0.1);
-            box-shadow: 0 0 20px rgba(58, 134, 255, 0.4);
-            transform: translateY(-1px);
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LexisAI | Oracle Research OS</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/cinematic.css">
+    <link rel="stylesheet" href="css/animations.css">
 </head>
-<body>
-    <div id="global-error-toast">
-        <strong style="color: var(--error-red);">[FATAL]</strong>
-        <span id="error-message-text">System failure.</span>
-    </div>
+<body class="dark-theme">
+    <div id="ambient-background"></div>
+    <div id="grid-overlay"></div>
 
     <main id="app-root">
-        <div class="container glass-panel">
-            <h1 class="glow-text">LexisAI</h1>
-            <p style="color: var(--text-muted); font-size: 1.2rem;">Oracle-Level Deep Research Engine</p>
-            
-            <div class="query-box">
-                <input type="text" id="research-query-input" placeholder="Initialize research directive..." autocomplete="off">
-                <button type="button" id="btn-init-research" class="btn-primary">Initialize Pipeline</button>
+        
+        <header class="glass-header">
+            <div class="logo-container">
+                <div class="glow-orb"></div>
+                <h1>LexisAI <span class="version-tag">v14.0 OS</span></h1>
             </div>
-        </div>
+            <div class="system-status">
+                <span class="status-indicator online"></span>
+                <span class="status-text">ORACLE ENGINE READY</span>
+            </div>
+        </header>
+
+        <section id="view-prompt" class="view-layer active">
+            <div class="prompt-container glass-panel">
+                <h2>Initialize Deep Research</h2>
+                <p class="subtitle">Synthesizing multidimensional data across 25 cognitive passes.</p>
+                
+                <div class="input-wrapper">
+                    <textarea id="research-input" placeholder="Define your research parameters..." rows="4"></textarea>
+                    <button id="btn-generate-plan" class="btn-primary cinematic-glow">
+                        <span>Initialize Plan</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-plan" class="view-layer hidden">
+            <div class="plan-container glass-panel">
+                <h3>Research Trajectory Plan</h3>
+                <div id="plan-editor-content" contenteditable="true" class="document-editor">
+                    </div>
+                <div class="action-bar">
+                    <button id="btn-edit-plan" class="btn-secondary">Regenerate Plan</button>
+                    <button id="btn-start-research" class="btn-primary cinematic-glow">Execute Research Pipeline</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-research" class="view-layer hidden research-layout">
+            <aside class="timeline-panel glass-panel">
+                <div class="panel-header">Pipeline DAG</div>
+                <div id="timeline-container">
+                    </div>
+            </aside>
+
+            <section class="telemetry-panel glass-panel">
+                <div class="panel-header">System Telemetry</div>
+                <div id="live-feed-container" class="terminal-output font-mono">
+                    </div>
+            </section>
+
+            <aside class="source-panel glass-panel">
+                <div class="panel-header">Cryptographic Evidence</div>
+                <div class="confidence-meter">
+                    <span>Source Integrity</span>
+                    <div class="progress-bar"><div id="confidence-fill" style="width: 0%;"></div></div>
+                </div>
+                <div id="source-list-container">
+                    </div>
+            </aside>
+        </section>
+
     </main>
 
     <script type="module" src="js/core/app.js"></script>
