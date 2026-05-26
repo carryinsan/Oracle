@@ -1,93 +1,105 @@
-/**
- * LexisAI Live Source Dropdown UI
- * Path: /js/ui/sourceExplorer.js
- */
-import { eventBus } from '../core/eventBus.js';
+// File Path: js/ui/sourceExplorer.js
+// Purpose: Manages the "Cryptographic Evidence" panel. Deduplicates and renders incoming sources dynamically.
 
-export class SourceExplorer {
+import { EventBus } from '../core/eventBus.js';
+import { stateManager } from '../engine/researchState.js';
+
+class SourceExplorer {
     constructor() {
-        // Only initialize if we are on the research page
-        if (!document.querySelector('.execution-main')) return;
-
-        this.sourceCount = 0;
-        this.isOpen = false;
+        this.container = document.getElementById('source-list-container');
+        this.confidenceFill = document.getElementById('confidence-fill');
+        this.seenUrls = new Set();
+        this.totalSources = 0;
         
-        this.buildUI();
-
-        this.updateHandler = this.updateCount.bind(this);
-        this.discoverHandler = this.addSource.bind(this);
-        this.teardownHandler = this.teardown.bind(this);
-
-        eventBus.on('SOURCE_COUNT_UPDATED', this.updateHandler);
-        eventBus.on('SOURCE_DISCOVERED', this.discoverHandler);
-        eventBus.on('ROUTE_TEARDOWN', this.teardownHandler);
+        if (this.container) {
+            this.bindEvents();
+        }
     }
 
-    buildUI() {
-        // Create the Floating Button
-        this.btn = document.createElement('button');
-        this.btn.id = 'source-explorer-btn';
-        this.btn.innerHTML = `Researching <span id="se-count">0</span> Sources <span>▼</span>`;
-        Object.assign(this.btn.style, {
-            position: 'absolute', top: '30px', right: '40px',
-            background: 'var(--surface-glass)', border: '1px solid var(--accent-glow)',
-            color: '#fff', padding: '10px 20px', borderRadius: '8px',
-            cursor: 'pointer', zIndex: '100', backdropFilter: 'blur(10px)',
-            display: 'flex', gap: '10px', alignItems: 'center', fontWeight: '600'
+    bindEvents() {
+        // Listen for new search results being appended to the state
+        EventBus.on('STATE_UPDATED', (payload) => {
+            if (payload.path.startsWith('search_results.pass')) {
+                this.processNewSources(payload.value);
+            }
         });
 
-        // Create the Dropdown Panel
-        this.panel = document.createElement('div');
-        this.panel.id = 'source-explorer-panel';
-        Object.assign(this.panel.style, {
-            position: 'absolute', top: '80px', right: '40px',
-            width: '400px', maxHeight: '500px', overflowY: 'auto',
-            background: 'var(--surface-glass)', border: '1px solid var(--border-glass)',
-            borderRadius: '8px', padding: '15px', zIndex: '99', backdropFilter: 'blur(16px)',
-            display: 'none', flexDirection: 'column', gap: '10px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-        });
-
-        document.querySelector('.execution-main').appendChild(this.btn);
-        document.querySelector('.execution-main').appendChild(this.panel);
-
-        this.btn.addEventListener('click', () => {
-            this.isOpen = !this.isOpen;
-            this.panel.style.display = this.isOpen ? 'flex' : 'none';
+        // Reset the UI when the system restarts
+        EventBus.on('STATE_RESET', () => {
+            this.container.innerHTML = '';
+            this.seenUrls.clear();
+            this.totalSources = 0;
+            this.updateConfidenceMeter(0);
         });
     }
 
-    updateCount(payload) {
-        this.sourceCount = payload.total;
-        const countSpan = document.getElementById('se-count');
-        if (countSpan) countSpan.innerText = this.sourceCount;
-    }
-
-    addSource(payload) {
-        if (!this.panel) return;
+    processNewSources(rawResults) {
+        if (!rawResults) return;
         
-        const row = document.createElement('div');
-        Object.assign(row.style, {
-            display: 'flex', alignItems: 'center', gap: '12px',
-            padding: '10px', background: 'rgba(0,0,0,0.3)',
-            borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)'
+        let results = [];
+        try {
+            results = typeof rawResults === 'string' ? JSON.parse(rawResults) : rawResults;
+        } catch (e) {
+            console.error("[SourceExplorer] Failed to parse incoming sources.", e);
+            return;
+        }
+
+        if (!Array.isArray(results)) return;
+
+        let addedCount = 0;
+
+        results.forEach(source => {
+            if (source.url && !this.seenUrls.has(source.url)) {
+                this.seenUrls.add(source.url);
+                this.totalSources++;
+                addedCount++;
+                this.renderSourceCard(source);
+            }
         });
 
-        row.innerHTML = `
-            <img src="${payload.icon}" alt="logo" style="width: 24px; height: 24px; border-radius: 4px;">
-            <div style="flex-grow: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
-                <span style="color: #e2e8f0; font-size: 0.9rem;">${payload.title}</span><br>
-                <span style="color: var(--text-muted); font-size: 0.75rem;">${payload.domain}</span>
+        if (addedCount > 0) {
+            this.calculateAndSetConfidence();
+        }
+    }
+
+    renderSourceCard(source) {
+        const card = document.createElement('div');
+        card.className = 'source-card animate-reveal';
+        
+        // Extract domain for cleaner display
+        let domain = 'Source';
+        try { domain = new URL(source.url).hostname.replace('www.', ''); } catch (e) {}
+
+        card.innerHTML = `
+            <div class="source-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
             </div>
-            <a href="${payload.url}" target="_blank" style="color: var(--accent-glow); text-decoration: none; font-size: 0.85rem;">[↗]</a>
+            <div class="source-info">
+                <div class="source-title" title="${source.title || 'Encrypted Source'}">${source.title || 'Encrypted Source'}</div>
+                <div class="source-url"><a href="${source.url}" target="_blank" rel="noopener noreferrer">${domain}</a></div>
+            </div>
         `;
+
+        this.container.appendChild(card);
         
-        this.panel.prepend(row); // Add newest to top
+        // Ensure new sources scroll into view smoothly
+        this.container.scrollTop = this.container.scrollHeight;
     }
 
-    teardown() {
-        eventBus.off('SOURCE_COUNT_UPDATED', this.updateHandler);
-        eventBus.off('SOURCE_DISCOVERED', this.discoverHandler);
-        eventBus.off('ROUTE_TEARDOWN', this.teardownHandler);
+    calculateAndSetConfidence() {
+        // Heuristic: 15+ unique, diverse sources = 99% confidence.
+        // As the DAG pipeline executes, this bar will naturally fill up.
+        let rawPercentage = (this.totalSources / 15) * 100;
+        let percentage = Math.min(99, Math.max(5, rawPercentage)); // Cap at 99%
+        
+        this.updateConfidenceMeter(percentage);
+    }
+
+    updateConfidenceMeter(percentage) {
+        if (this.confidenceFill) {
+            this.confidenceFill.style.width = `${percentage}%`;
+        }
     }
 }
+
+export const sourceUI = new SourceExplorer();
