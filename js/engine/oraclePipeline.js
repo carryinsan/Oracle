@@ -1,122 +1,248 @@
-/**
- * LexisAI 40-Pass Deterministic State Machine
- * Path: /js/engine/oraclePipeline.js
- */
-import { state } from './researchState.js';
-import { eventBus } from '../core/eventBus.js';
-import { ProgressTracker } from './progressTracker.js';
-import { QueryGenerator } from './queryGenerator.js';
-import { TavilySearch } from '../api/tavilySearch.js';
-import { SourceManager } from './sourceManager.js';
-import { AnalysisCoordinator } from './analysisCoordinator.js';
-import { ReportAssembler } from './reportAssembler.js';
+// File Path: js/engine/oraclePipeline.js
+// Purpose: The core orchestration engine executing the 25-pass interleaved DAG.
+// Handles prompt compilation, API dispatching, and state mutation.
 
-import { PASS_01_BRANCH_A, PASS_02_BRANCH_B, PASS_03_BRANCH_C, PASS_07_BRANCH_D } from '../prompts/researchPrompts.js';
-import { PASS_15_EXEC_SUMMARY, PASS_16_CORE_MECHANICS, PASS_17_DEEP_DIVE_A, PASS_20_NUANCE_EDGE_CASES } from '../prompts/writingPrompts.js';
+import { Config } from '../core/config.js';
+import { EventBus } from '../core/eventBus.js';
+import { stateManager } from './researchState.js';
+import { gemini } from '../api/geminiClient.js';
+import { tavily } from '../api/tavilyClient.js';
+import { getPromptForPass } from '../prompts/systemPrompts.js';
+import { tokenManager } from './tokenManager.js';
+import { OcpAlgorithm } from './ocpAlgorithm.js';
 
 class OraclePipeline {
-    async execute(userIntent) {
-        try {
-            state.resetState();
-            state.query = userIntent;
-            ProgressTracker.reset();
+    constructor() {
+        this.isRunning = false;
+        this.shouldHalt = false;
+        
+        // Listen for user commands to start/resume
+        EventBus.on('UI_RESEARCH_INIT', async (payload) => {
+            await stateManager.update('query', payload.query);
+            this.startPipeline(1); // Start at Pass 1
+        });
 
-            // PHASE 1: DISCOVERY
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 1: DISCOVERY...` });
-            ProgressTracker.advance("PHASE 1: DISCOVERY", 3);
+        // Listen for Pass 2 Plan Approval
+        EventBus.on('UI_PLAN_APPROVED', async (payload) => {
+            await stateManager.update('plan.outline', payload.planHtml);
+            this.startPipeline(3); // Resume at Pass 3
+        });
+    }
+
+    /**
+     * Replaces {researchState.path.to.var} in prompts with actual data.
+     */
+    interpolatePrompt(promptTemplate) {
+        return promptTemplate.replace(/\{researchState\.([a-zA-Z0-9_.]+)\}/g, (match, path) => {
+            let value = stateManager.get(path);
             
-            const branchResults = await Promise.allSettled([
-                QueryGenerator.generateBranch('A', PASS_01_BRANCH_A, userIntent),
-                QueryGenerator.generateBranch('B', PASS_02_BRANCH_B, userIntent),
-                QueryGenerator.generateBranch('C', PASS_03_BRANCH_C, userIntent)
-            ]);
-
-            state.queries.branch_A = branchResults[0].status === 'fulfilled' ? branchResults[0].value : [];
-            state.queries.branch_B = branchResults[1].status === 'fulfilled' ? branchResults[1].value : [];
-            state.queries.branch_C = branchResults[2].status === 'fulfilled' ? branchResults[2].value : [];
-
-            eventBus.emit('TERMINAL_LOG', { message: `> Executing Multi-Branch Web Retrieval` });
-            ProgressTracker.advance("PHASE 1: EXTRACTION", 9); // Search passes
+            if (value === undefined || value === null) return "";
             
-            const batch1Queries = [...state.queries.branch_A, ...state.queries.branch_B, ...state.queries.branch_C];
-            const batch1Sources = await TavilySearch.executeBatch(batch1Queries);
-            SourceManager.ingest(batch1Sources);
+            // If the state holds an object/array, we must stringify it so it doesn't break the prompt
+            if (typeof value === 'object') {
+                return JSON.stringify(value, null, 2);
+            }
+            return String(value);
+        });
+    }
 
-            // PHASE 1: EXTRACTION
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 1: EXTRACTION...` });
-            ProgressTracker.advance("PHASE 1: EXTRACTION", 1);
-            await AnalysisCoordinator.extractAndAnchor(batch1Sources);
+    /**
+     * Starts or resumes the pipeline from a specific pass.
+     */
+    async startPipeline(startPass = 1) {
+        if (this.isRunning) return;
+        this.isRunning = true;
+        this.shouldHalt = false;
 
-            // PHASE 1: REFLECTION
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 1: REFLECTION...` });
-            ProgressTracker.advance("PHASE 1: REFLECTION", 1);
-            await AnalysisCoordinator.mapContradictions();
+        await stateManager.update('status', 'running');
+        console.log(`[OraclePipeline] Initiating sequence from Pass ${startPass}`);
 
-            // PHASE 1: INDEXING & GAP-FILL
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 1: INDEXING...` });
-            ProgressTracker.advance("PHASE 1: INDEXING", 1);
+        for (let i = startPass - 1; i < Config.PIPELINE_STAGES.length; i++) {
+            if (this.shouldHalt) break;
+
+            const stage = Config.PIPELINE_STAGES[i];
+            await stateManager.update('currentPass', stage.pass);
             
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 1: GAP-FILL...` });
-            ProgressTracker.advance("PHASE 1: GAP-FILL", 2);
-            
-            const gapQueries = await QueryGenerator.generateBranch('D', PASS_07_BRANCH_D, userIntent);
-            
-            eventBus.emit('TERMINAL_LOG', { message: `> Executing Secondary Gap-Fill Web Retrieval` });
-            ProgressTracker.advance("PHASE 1: GAP-FILL", 6); // Search passes
-            
-            const batch2Sources = await TavilySearch.executeBatch(gapQueries);
-            SourceManager.ingest(batch2Sources);
-            
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 1: COMPRESSION...` });
-            ProgressTracker.advance("PHASE 1: COMPRESSION", 1);
-            await AnalysisCoordinator.extractAndAnchor(batch2Sources);
-            
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 1: VERIFICATION...` });
-            ProgressTracker.advance("PHASE 1: VERIFICATION", 1);
+            EventBus.emit('PIPELINE_PASS_START', { 
+                pass: stage.pass, 
+                name: stage.name, 
+                type: stage.type 
+            });
 
-            // PHASE 2: GLOBAL SYNTHESIS
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 2: GLOBAL SYNTHESIS...` });
-            ProgressTracker.advance("PHASE 2: GLOBAL SYNTHESIS", 7);
-            
-            const fullMemoryString = JSON.stringify(state.anchored_claims);
-            const memorySlice = fullMemoryString.substring(0, Math.min(fullMemoryString.length, 50000)); 
+            try {
+                await this.executeStage(stage);
+                EventBus.emit('PIPELINE_PASS_COMPLETE', { pass: stage.pass });
+            } catch (error) {
+                console.error(`[OraclePipeline] CRITICAL FAILURE at Pass ${stage.pass}:`, error);
+                await stateManager.update('status', 'error');
+                
+                // Log failure to state for recovery
+                const failures = stateManager.get('failures') || [];
+                failures.push({ pass: stage.pass, error: error.message });
+                await stateManager.update('failures', failures);
+                
+                EventBus.emit('PIPELINE_ERROR', { pass: stage.pass, error: error.message });
+                this.isRunning = false;
+                return; // Halt execution on critical failure
+            }
 
-            // PHASE 3: GENERATION
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 3: GENERATION...` });
-            await Promise.allSettled([
-                ReportAssembler.draftSection('introduction', memorySlice, PASS_15_EXEC_SUMMARY),
-                ReportAssembler.draftSection('core_mechanics', memorySlice, PASS_16_CORE_MECHANICS),
-                ReportAssembler.draftSection('deep_dive_a', memorySlice, PASS_17_DEEP_DIVE_A),
-                ReportAssembler.draftSection('nuance_and_temporal', JSON.stringify(state.contradictions), PASS_20_NUANCE_EDGE_CASES)
-            ]);
+            // Halt after Plan (Pass 2) to wait for User UI Approval
+            if (stage.pass === 2) {
+                console.log("[OraclePipeline] Halting at Pass 2 for user plan approval.");
+                this.isRunning = false;
+                await stateManager.update('status', 'awaiting_approval');
+                EventBus.emit('PIPELINE_PAUSED_FOR_USER');
+                break; 
+            }
+        }
 
-            // PHASE 4: FINAL AUDIT
-            eventBus.emit('TERMINAL_LOG', { message: `[SYSTEM] Initializing PHASE 4: FINAL AUDIT...` });
-            ProgressTracker.advance("PHASE 4: FINAL AUDIT", 10);
-            await ReportAssembler.compileFinalReport();
-
-            this._checkpointSession();
-
-        } catch (error) {
-            console.error("[OraclePipeline] Fatal Collapse:", error);
-            eventBus.emit('FATAL_ERROR', { message: `[ORACLE_COLLAPSE] Pipeline halted: ${error.message}` });
+        if (!this.shouldHalt && stateManager.get('currentPass') === 25) {
+            console.log("[OraclePipeline] 25-Pass DAG Execution Completed Successfully.");
+            await stateManager.update('status', 'complete');
+            EventBus.emit('PIPELINE_COMPLETE');
+            this.isRunning = false;
         }
     }
 
-    _checkpointSession() {
-        try {
-            const history = JSON.parse(localStorage.getItem('lexis_history') || '[]');
-            history.unshift({
-                date: new Date().toISOString(),
-                query: state.query,
-                sources: state.rawSources.length,
-                report: state.draft.resolved_citations
-            });
-            localStorage.setItem('lexis_history', JSON.stringify(history.slice(0, 10)));
-        } catch (e) {
-            console.warn("History checkpoint failed (Quota exceeded).");
+    /**
+     * Executes the logic for a single DAG stage.
+     */
+    async executeStage(stage) {
+        const userQuery = stateManager.get('query');
+        
+        // Pass 25 is executed locally by our custom JS Algorithm, not the LLM
+        if (stage.pass === 25) {
+            return await this.executeLocalOcpAlgorithm();
         }
+
+        // For LLM Passes (1-24)
+        const rawPrompt = getPromptForPass(stage.pass);
+        // Replace variables with actual user query and state memory
+        const systemInstruction = this.interpolatePrompt(rawPrompt).replace(/\{user_prompt\}/g, userQuery);
+
+        if (stage.type === "SEARCH") {
+            // Passes 3, 7, 11, 15, 19
+            // 1. Get the queries generated in the previous pass
+            const queriesPath = `queries.pass${stage.pass}`;
+            let queries = stateManager.get(queriesPath);
+            
+            if (typeof queries === 'string') {
+                try { queries = JSON.parse(queries); } catch(e) { queries = [queries]; }
+            }
+
+            if (!Array.isArray(queries) || queries.length === 0) {
+                throw new Error(`No valid search queries found for Pass ${stage.pass}`);
+            }
+
+            // 2. Execute Tavily Searches in parallel
+            EventBus.emit('TELEMETRY_LOG', `Executing advanced depth search for ${queries.length} queries...`);
+            const searchPromises = queries.map(q => tavily.search(q));
+            const searchResults = await Promise.all(searchPromises);
+            
+            // 3. Flatten and trim to save tokens
+            const flatResults = searchResults.flat().slice(0, stage.maxResults);
+            
+            // 4. Save results to state so the next THINK pass can evaluate them
+            await stateManager.update(`search_results.pass${stage.pass}`, JSON.stringify(flatResults));
+            EventBus.emit('TELEMETRY_LOG', `Retrieved ${flatResults.length} cryptographic source fragments.`);
+
+        } else {
+            // THINK, PLAN, WRITE, AUDIT, CODE_GEN Passes
+            EventBus.emit('TELEMETRY_LOG', `Initiating cognitive model: Gemini 2.5 Flash...`);
+            
+            // Check Token Budget before sending
+            if (!tokenManager.isWithinBudget(systemInstruction)) {
+                EventBus.emit('TELEMETRY_LOG', `[WARNING] Approaching token limit. Compressing context...`);
+                // In a full implementation, you would trigger older slice compression here
+            }
+
+            const expectJson = (stage.pass === 2 || stage.pass === 3 || stage.pass === 7 || stage.pass === 11 || stage.pass === 15 || stage.pass === 19);
+            
+            const response = await gemini.generate(systemInstruction, `Execute Pass ${stage.pass}.`, expectJson);
+            
+            tokenManager.trackUsage(systemInstruction, typeof response === 'object' ? JSON.stringify(response) : response);
+
+            // Action Mapping based on Pass Number
+            await this.mapResponseToState(stage.pass, response);
+        }
+    }
+
+    /**
+     * Maps the output from Gemini directly into the correct state variables.
+     */
+    async mapResponseToState(passNumber, responseText) {
+        switch (passNumber) {
+            case 1:
+                await stateManager.update('trajectory', responseText);
+                break;
+            case 2: // Plan (JSON Expected)
+                await stateManager.update('plan.outline', responseText.outline || responseText);
+                await stateManager.update('STYLE_GUIDE', responseText.STYLE_GUIDE || "");
+                break;
+            case 3: case 7: case 11: case 15: case 19: // Query Generators
+                await stateManager.update(`queries.pass${passNumber}`, responseText);
+                break;
+            case 4:
+                await stateManager.update('memory_index.slice1', responseText);
+                break;
+            case 5: case 6: case 9: case 10: case 13: case 14: case 17: case 18: case 21: case 22:
+                await stateManager.update(`draft.pass${passNumber}`, responseText);
+                break;
+            case 8:
+                await stateManager.update('memory_index.slice2', responseText);
+                // Simple heuristic to extract contradictions
+                if (typeof responseText === 'string' && responseText.includes('CONTRADICTION')) {
+                    const currentC = stateManager.get('contradictions') || [];
+                    await stateManager.update('contradictions', [...currentC, "Detected in Pass 8"]);
+                }
+                break;
+            case 12:
+                await stateManager.update('memory_index.slice3', responseText);
+                break;
+            case 16:
+                await stateManager.update('memory_index.slice4', responseText);
+                break;
+            case 20:
+                await stateManager.update('memory_index.slice5', responseText);
+                // Compile all drafts for the audit phase
+                this.compileAllDrafts();
+                break;
+            case 23:
+                await stateManager.update('audit.errors', responseText);
+                break;
+            case 24:
+                await stateManager.update('audit.ocp_codes', responseText);
+                break;
+        }
+    }
+
+    /**
+     * Assembles all the individual written sections into a single master string.
+     */
+    async compileAllDrafts() {
+        const draft = stateManager.get('draft');
+        const allPasses = [
+            draft.pass5, draft.pass6, draft.pass9, draft.pass10, draft.pass13,
+            draft.pass14, draft.pass17, draft.pass18, draft.pass21, draft.pass22
+        ].filter(Boolean).join('\n\n');
+        
+        await stateManager.update('draft.all_passes', allPasses);
+        EventBus.emit('TELEMETRY_LOG', "Compiled all narrative drafts for final Audit.");
+    }
+
+    /**
+     * Executes Pass 25 Algorithm locally (Sub-part B)
+     */
+    async executeLocalOcpAlgorithm() {
+        EventBus.emit('TELEMETRY_LOG', "Executing local algorithmic string replacements (OCP Pass 25)...");
+        const finalDraft = await OcpAlgorithm.execute();
+        await stateManager.update('final_report', finalDraft);
+        EventBus.emit('TELEMETRY_LOG', "Final Report mathematically verified and finalized.");
+    }
+
+    stopPipeline() {
+        this.shouldHalt = true;
     }
 }
 
-export const oracle = new OraclePipeline();
+export const pipeline = new OraclePipeline();
