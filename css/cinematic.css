@@ -1,5 +1,5 @@
 /* File Path: css/cinematic.css */
-/* Purpose: Core visual identity, layout, and premium glassmorphic UI for LexisAI */
+/* Purpose: Core visual identity, layout, premium glassmorphic UI, and print optimization for LexisAI */
 
 :root {
     /* Color Palette */
@@ -81,6 +81,7 @@ header.glass-header {
     padding: 15px 25px;
     background: var(--bg-surface);
     backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
     margin-bottom: 20px;
@@ -108,22 +109,85 @@ header.glass-header {
     margin-left: 8px;
 }
 
-/* --- View Management --- */
+.system-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+}
+
+.status-indicator.online {
+    width: 8px;
+    height: 8px;
+    background-color: var(--accent-success);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-success);
+}
+
+/* --- View Management (BULLETPROOF ISOLATION) --- */
 .view-layer {
-    display: none;
+    display: none !important; /* Force hide all layers by default */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
     flex: 1;
-    animation: fadeIn 0.5s ease forwards;
+    animation: fadeIn 0.4s ease forwards;
 }
 
 .view-layer.active {
-    display: flex;
+    display: flex !important; /* ONLY the active layer shows */
+}
+
+/* Strict utility class for JS toggling */
+.hidden {
+    display: none !important;
 }
 
 .research-layout {
-    display: grid;
+    display: grid !important; /* Overrides flex when active */
     grid-template-columns: 280px 1fr 320px;
     gap: 20px;
     height: calc(100vh - 120px);
+    align-items: stretch;
+}
+
+/* --- Container Alignment --- */
+.prompt-container, .plan-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.prompt-container h2, .plan-container h3 {
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+}
+
+.input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.action-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-glass);
 }
 
 /* --- Components --- */
@@ -151,21 +215,47 @@ header.glass-header {
 /* Form Inputs */
 textarea {
     width: 100%;
-    background: rgba(0,0,0,0.3);
+    background: rgba(0,0,0,0.4);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
     padding: 16px;
     color: var(--text-primary);
     font-family: var(--font-primary);
     font-size: 1rem;
-    resize: none;
+    resize: vertical;
+    min-height: 120px;
     transition: var(--transition-smooth);
 }
 
 textarea:focus {
     outline: none;
     border-color: var(--accent-glow);
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+    background: rgba(0,0,0,0.6);
+}
+
+/* Document Editor (Plan & Final Report) */
+.document-editor {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    min-height: 300px;
+    max-height: 60vh;
+    overflow-y: auto;
+    font-family: var(--font-primary);
+    line-height: 1.7;
+}
+
+.document-editor h2, .document-editor h3 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--accent-glow);
+}
+
+.document-editor p, .document-editor li {
+    margin-bottom: 1em;
+    color: var(--text-primary);
 }
 
 /* Buttons */
@@ -179,6 +269,7 @@ button {
     font-family: var(--font-primary);
     font-weight: 500;
     transition: var(--transition-smooth);
+    font-size: 0.95rem;
 }
 
 .btn-primary {
@@ -194,6 +285,18 @@ button {
     box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
 }
 
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    border: 1px solid var(--border-glass);
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
 /* Telemetry / Terminal */
 .terminal-output {
     font-family: var(--font-mono);
@@ -202,9 +305,14 @@ button {
     overflow-y: auto;
     height: calc(100% - 40px);
     padding-right: 10px;
+    line-height: 1.5;
 }
+
+.feed-line {
+    margin-bottom: 6px;
+}
+
 /* --- NATIVE PDF EXPORT OPTIMIZATION --- */
-/* Resolves mobile canvas crashing by offloading to the native print spooler */
 @media print {
     body.print-mode {
         background: white !important;
@@ -213,7 +321,6 @@ button {
         overflow: visible !important;
     }
 
-    /* Hide the UI elements we don't want in the PDF */
     header.glass-header,
     #ambient-background,
     #grid-overlay,
@@ -224,7 +331,6 @@ button {
         display: none !important;
     }
 
-    /* Format the report container for standard A4/Letter paper */
     .report-container {
         border: none !important;
         box-shadow: none !important;
@@ -233,18 +339,17 @@ button {
         max-width: 100% !important;
     }
 
-    .report-body h1, .report-body h2 {
+    .report-body h1, .report-body h2, .report-body h3 {
         color: #111 !important;
         page-break-after: avoid;
     }
 
-    .report-body p {
+    .report-body p, .report-body li {
         color: #333 !important;
-        line-height: 1.5;
         page-break-inside: avoid;
     }
 
-    .citation-tag {
+    .citation-tag, .citation-number {
         color: #2563eb !important;
         border: 1px solid #2563eb !important;
     }
@@ -254,4 +359,3 @@ button {
         color: #2563eb !important;
     }
 }
-
