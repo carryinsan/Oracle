@@ -1,65 +1,84 @@
-/**
- * LexisAI Live Terminal Feed Controller
- * Path: /js/ui/researchFeed.js
- */
-import { eventBus } from '../core/eventBus.js';
+// File Path: js/ui/researchFeed.js
+// Purpose: Cinematic terminal output for system telemetry. Builds user trust via transparency.
 
-export class ResearchFeed {
+import { EventBus } from '../core/eventBus.js';
+import { Config } from '../core/config.js';
+
+class ResearchFeed {
     constructor() {
         this.container = document.getElementById('live-feed-container');
-        if (!this.container) return;
-
-        this.logHandler = this.appendLog.bind(this);
-        this.teardownHandler = this.teardown.bind(this);
-
-        eventBus.on('TERMINAL_LOG', this.logHandler);
-        eventBus.on('ROUTE_TEARDOWN', this.teardownHandler);
-    }
-
-    appendLog(payload) {
-        if (!this.container) return;
+        this.isStreaming = false;
+        this.queue = [];
         
-        try {
-            const logEntry = document.createElement('div');
-            logEntry.style.opacity = '0';
-            logEntry.style.transform = 'translateY(5px)';
-            logEntry.style.transition = 'all 0.2s ease';
-            
-            let rawText = payload.message;
-            let formattedHtml = '';
-
-            // Exact Screenshot Parsing Logic
-            if (rawText.startsWith('[SYSTEM]')) {
-                formattedHtml = `<span style="color: var(--accent-glow); font-weight: 600;">${rawText}</span>`;
-            } else if (rawText.startsWith('> Executing Search:')) {
-                // Highlight search queries in slightly brighter text
-                let styled = rawText.replace(/"(.*?)"/g, '<span style="color: #cbd5e1;">"$1"</span>');
-                formattedHtml = `<span style="color: var(--text-muted);">${styled}</span>`;
-            } else if (rawText.startsWith('> API Rate Limit')) {
-                formattedHtml = `<span style="color: #475569;">${rawText}</span>`;
-            } else if (rawText.startsWith('>')) {
-                formattedHtml = `<span style="color: var(--text-muted);">${rawText}</span>`;
-            } else {
-                formattedHtml = `<span style="color: var(--text-muted);">${rawText}</span>`;
-            }
-            
-            logEntry.innerHTML = formattedHtml;
-            this.container.appendChild(logEntry);
-
-            // Trigger reflow for animation
-            void logEntry.offsetWidth; 
-            logEntry.style.opacity = '1';
-            logEntry.style.transform = 'translateY(0)';
-
-            // Auto-scroll to bottom smoothly
-            this.container.scrollTop = this.container.scrollHeight;
-        } catch (e) {
-            console.error("[UI_ERROR] Feed failed to render chunk.", e);
+        if (this.container) {
+            this.bindEvents();
         }
     }
 
-    teardown() {
-        eventBus.off('TERMINAL_LOG', this.logHandler);
-        eventBus.off('ROUTE_TEARDOWN', this.teardownHandler);
+    bindEvents() {
+        // Listen for internal system logs
+        EventBus.on('TELEMETRY_LOG', (message) => {
+            this.queueLog(`> ${this.getTimestamp()} - ${message}`);
+        });
+
+        // Listen for state updates to display dynamic data ingestion
+        EventBus.on('STATE_UPDATED', (payload) => {
+            if (payload.path.includes('memory_index')) {
+                this.queueLog(`> ${this.getTimestamp()} - [MEMORY] Anchored new cryptographic claims to semantic index.`);
+            }
+        });
+    }
+
+    getTimestamp() {
+        const now = new Date();
+        return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+    }
+
+    queueLog(message) {
+        this.queue.push(message);
+        if (!this.isStreaming) {
+            this.processQueue();
+        }
+    }
+
+    async processQueue() {
+        if (this.queue.length === 0) {
+            this.isStreaming = false;
+            return;
+        }
+
+        this.isStreaming = true;
+        const message = this.queue.shift();
+        
+        const line = document.createElement('div');
+        line.className = 'feed-line streaming-text';
+        this.container.appendChild(line);
+
+        // Cinematic Typing Effect
+        for (let i = 0; i < message.length; i++) {
+            line.textContent += message.charAt(i);
+            this.scrollToBottom();
+            // Fast delay for technical readouts
+            await this.sleep(Config.UI.STREAM_SPEED_MS); 
+        }
+
+        line.classList.remove('streaming-text');
+        
+        // Keep DOM light by removing old logs (prevent memory leak)
+        if (this.container.children.length > 100) {
+            this.container.removeChild(this.container.firstChild);
+        }
+
+        this.processQueue();
+    }
+
+    scrollToBottom() {
+        this.container.scrollTop = this.container.scrollHeight;
+    }
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
+
+export const feedUI = new ResearchFeed();
