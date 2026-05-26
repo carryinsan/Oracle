@@ -1,85 +1,86 @@
-/**
- * LexisAI Application Bootstrapper & Error Boundary
- * Path: /js/core/app.js
- */
+// File Path: js/core/app.js
+// Purpose: Main initialization module. Binds UI to the EventBus and bootstraps LexisAI.
 
-import { eventBus } from './eventBus.js';
-import { router } from './router.js';
+import { Config } from './config.js';
+import { EventBus } from './eventBus.js';
 
-class LexisOS {
+class LexisApp {
     constructor() {
-        this.setupGlobalErrorBoundary();
-        this.bindGlobalInterceptors();
+        this.dom = {
+            viewPrompt: document.getElementById('view-prompt'),
+            viewPlan: document.getElementById('view-plan'),
+            viewResearch: document.getElementById('view-research'),
+            inputField: document.getElementById('research-input'),
+            btnGeneratePlan: document.getElementById('btn-generate-plan'),
+            btnStartResearch: document.getElementById('btn-start-research')
+        };
         
-        // Initial boot injection
-        router.handleRoute();
+        this.initialize();
     }
 
-    setupGlobalErrorBoundary() {
-        const triggerToast = (msgString) => {
-            const toast = document.getElementById('global-error-toast');
-            const msg = document.getElementById('error-message-text');
-            if (toast && msg) {
-                msg.textContent = msgString;
-                toast.classList.add('visible');
-                
-                // Auto-hide after 6 seconds
-                setTimeout(() => toast.classList.remove('visible'), 6000);
-            }
-        };
-
-        // 1. Listen for internally dispatched pipeline errors
-        eventBus.on('FATAL_ERROR', (payload) => {
-            console.error(payload.message);
-            triggerToast(payload.message || 'Unknown Pipeline Failure');
-        });
-
-        // 2. Catch native runtime exceptions (Undefined DOM nodes, etc.)
-        window.onerror = (message, source, lineno) => {
-            const cleanMsg = typeof message === 'object' ? 'DOM/Script execution error' : message;
-            eventBus.emit('FATAL_ERROR', { message: `[SYS_CRASH] ${cleanMsg} (Line: ${lineno})` });
-            return true; 
-        };
-
-        // 3. Catch silent async fetch/promise failures (504s, 429s, Network Drops)
-        window.addEventListener('unhandledrejection', (event) => {
-            const errorReason = event.reason?.message || event.reason || 'Unhandled Async Rejection';
-            eventBus.emit('FATAL_ERROR', { message: `[NETWORK_FAIL] ${errorReason}` });
-        });
+    initialize() {
+        console.log(`[LexisAI] System Boot Sequence Initiated. Version: ${Config.VERSION}`);
+        this.bindEvents();
+        this.setupGlobalErrorHandling();
     }
 
-    bindGlobalInterceptors() {
-        document.body.addEventListener('click', (e) => {
-            // KILL SWITCH: Prevent all native HTML <form> GET reloads
-            if (e.target.tagName === 'BUTTON' && e.target.type === 'submit') {
-                e.preventDefault();
-            }
+    bindEvents() {
+        // Handle User Input Submission
+        this.dom.btnGeneratePlan.addEventListener('click', () => {
+            const query = this.dom.inputField.value.trim();
+            if (!query) return;
 
-            // Global SPA link interceptor
-            const link = e.target.closest('a');
-            if (link && link.getAttribute('href')?.startsWith('#')) {
-                e.preventDefault();
-                router.navigate(link.getAttribute('href'));
-            }
+            // Transition UI
+            this.switchView('view-plan');
             
-            // Explicit interception of the Index "Initialize Pipeline" button
-            if (e.target.id === 'btn-init-research') {
-                e.preventDefault();
-                const queryInput = document.getElementById('research-query-input');
-                
-                if (queryInput && queryInput.value.trim() !== '') {
-                    // Temporarily persist intent in memory, then swap view
-                    sessionStorage.setItem('LEXIS_INTENT', queryInput.value.trim());
-                    router.navigate('#/research');
-                } else {
-                    eventBus.emit('FATAL_ERROR', { message: 'Research directive cannot be empty.' });
-                }
+            // Notify orchestration to begin Pass 1 (Think) & Pass 2 (Plan)
+            EventBus.emit('UI_RESEARCH_INIT', { query });
+        });
+
+        // Handle Plan Confirmation (Moves to Execution phase)
+        this.dom.btnStartResearch.addEventListener('click', () => {
+            const approvedPlanHtml = document.getElementById('plan-editor-content').innerHTML;
+            
+            this.switchView('view-research');
+            EventBus.emit('UI_PLAN_APPROVED', { planHtml: approvedPlanHtml });
+        });
+
+        // Listen for internal systemic resets (e.g., user wants to start over)
+        EventBus.on('SYSTEM_RESET', () => {
+            this.dom.inputField.value = '';
+            this.switchView('view-prompt');
+        });
+    }
+
+    /**
+     * Handles cinematic view transitions by toggling active classes.
+     * @param {string} viewId - The ID of the section to show.
+     */
+    switchView(viewId) {
+        Object.values(this.dom).forEach(el => {
+            if (el && el.classList && el.classList.contains('view-layer')) {
+                el.classList.remove('active');
+                el.classList.add('hidden');
             }
+        });
+        
+        const targetView = document.getElementById(viewId);
+        if (targetView) {
+            targetView.classList.remove('hidden');
+            targetView.classList.add('active');
+        }
+    }
+
+    setupGlobalErrorHandling() {
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('[LexisAI Global Error Guard]', event.reason);
+            // In a production build, this would trigger a silent telemetry log
+            // or an elegant UI failure notification to maintain trust.
         });
     }
 }
 
-// Instantiate OS on DOM load
+// Bootstrap the application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.LexisApp = new LexisOS();
+    window.LexisAI = new LexisApp();
 });
